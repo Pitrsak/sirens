@@ -1,0 +1,15 @@
+[project]
+name = "fathom"
+version = "0.1.0"
+description = "All-in-one sound synthesis, composition and visualisation studio, written in Python."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Krystof Pitter" }]
+dependencies = []  # add only libraries the course rules allow
+
+[project.scripts]
+fathom = "fathom.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
