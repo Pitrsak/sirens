@@ -1,0 +1,41 @@
+{
+  "synth": {
+    "osc1_wave": 1,
+    "osc1_level": 0.8,
+    "osc2_wave": 2,
+    "osc2_octave": 3,
+    "osc2_detune": -9,
+    "osc2_level": 0.4,
+    "noise": 0.25,
+    "cutoff": 900,
+    "res": 0.2,
+    "env_amt": 800,
+    "lfo_rate": 0.15,
+    "lfo_depth": 600,
+    "amp_a": 1.2,
+    "amp_d": 1.0,
+    "amp_s": 0.8,
+    "amp_r": 2.5,
+    "flt_a": 1.5,
+    "flt_d": 1.0,
+    "flt_s": 0.5,
+    "flt_r": 2.0,
+    "drive": 2,
+    "bits": 16,
+    "delay_time": 0.6,
+    "delay_fb": 0.6,
+    "delay_mix": 0.4,
+    "glide": 0.0,
+    "volume": 0.5
+  },
+  "visual": {
+    "speed": 0.4,
+    "scale": 1.2,
+    "hue": 0.55,
+    "glass": 0.2,
+    "chroma": 0.3,
+    "ripple": 0.4,
+    "trails": 0.8,
+    "react": 1.5
+  }
+}
