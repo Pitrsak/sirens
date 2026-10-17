@@ -1,4 +1,4 @@
-"""Entry point: `python -m fathom` or `fathom`."""
+"""Vstupní bod aplikace: `python -m fathom` nebo `python main.py`."""
 
 from fathom import __version__
 

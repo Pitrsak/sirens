@@ -1,0 +1,5 @@
+# Instalace (podle návodu předmětu):
+#   pip install -i https://service.iim.cz/devpi/root/mm1 -r requirements.txt
+pyo
+wxpython
+opencv-python
