@@ -24,9 +24,16 @@ SLIDER_FILL_HOT = wx.Colour(74, 74, 80) # vyplněná část, když je nad ní my
 VALUE_BOX = wx.Colour(11, 11, 12)       # rámeček s číslem vpravo od slideru
 
 
-def font(size: int = 11, bold: bool = False) -> wx.Font:
-    weight = wx.FONTWEIGHT_BOLD if bold else wx.FONTWEIGHT_NORMAL
-    return wx.Font(size, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, weight)
+def font(size: float = 11, bold: bool = False) -> wx.Font:
+    """Písmo dané velikosti, na všech systémech stejně velké v pixelech.
+
+    macOS počítá 1 bod = 1 pixel (72 DPI), Windows a Linux 1 bod = 96/72 pixelu,
+    takže stejné číslo by tam dalo o třetinu větší text a nevešel by se do
+    sliderů a tlačítek (ty mají výšku v pixelech). Mimo macOS proto zmenšíme.
+    """
+    if wx.Platform != "__WXMAC__":
+        size = size * 72 / 96
+    return wx.Font(wx.FontInfo(size).Family(wx.FONTFAMILY_SWISS).Bold(bold))
 
 
 def draw_spaced(gc, text: str, x: float, y: float, spacing: float = 1.5) -> float:

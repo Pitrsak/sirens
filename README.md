@@ -18,13 +18,31 @@ a spektrum (vlastní DFT) a po uložení souboru zvuk hned načte znovu.
 
 Příště už stačí `source .venv/bin/activate` a `python main.py`.
 
+## Instalace a spuštění (Windows)
+
+1. Nainstalovat Python 3.13 z https://www.python.org/downloads/windows/, verzi
+   **Windows installer (64-bit)**. pyo pro Windows existuje jen 64bitový, takže 32bitový
+   Python nepůjde. Na počítači s ARM procesorem taky vzít 64-bit (x64), ne ARM64.
+2. Otevřít PowerShell ve složce projektu (v Průzkumníku Shift + pravé tlačítko
+   -> "Otevřít okno PowerShellu zde") a spustit:
+
+        py -3.13 -m venv .venv
+        .venv\Scripts\python -m pip install -i https://service.iim.cz/devpi/root/mm1 -r requirements.txt
+        .venv\Scripts\python main.py
+
+Příště už stačí `.venv\Scripts\python main.py`. (Prostředí se schválně neaktivuje přes
+`Activate.ps1`, protože to PowerShell ve výchozím nastavení blokuje.)
+
+Když se ozve zvuk do špatného výstupu, přepnout výchozí zařízení ve Windows
+(ikona reproduktoru na liště) a aplikaci spustit znovu.
+
 Na Linuxu (Debian, Raspberry Pi) jde místo pip použít systémové balíčky:
 `sudo apt install python3-pyo python3-wxgtk4.0 python3-opencv` a pak `python3 main.py`.
 
 ## Ovládání
 
 - **Zvuk:** píše se do `sirens/sound.py` (návod je přímo v souboru). Po uložení se načte sám,
-  ručně `Reload` nebo `Cmd+R`. Chyba v kódu se ukáže dole pod grafy i s číslem řádku.
+  ručně `Reload` nebo `Cmd+R` (na Windows `Ctrl+R`). Chyba v kódu se ukáže dole pod grafy i s číslem řádku.
 - **Slidery:** kliknout / táhnout v pruhu, kolečko myši = jemný posun, dvojklik = výchozí hodnota,
   kliknutí na číslo = zapsat přesnou hodnotu (Enter potvrdí, Esc zruší).
 - **Stop / Play** vpravo nahoře ztlumí výstup, `Master` je celková hlasitost.
