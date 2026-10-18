@@ -1,0 +1,154 @@
+"""Osciloskop a spektrum, kreslené přes wx.GraphicsContext.
+
+Obě okna mají stejný rámeček (zaoblený, tenký okraj, nadpis vlevo nahoře,
+údaj vpravo nahoře); liší se jen tím, co nakreslí dovnitř.
+"""
+
+import math
+
+import wx
+
+from sirens.ui import theme
+
+MARGIN = 14        # odsazení grafu od okraje rámečku
+TOP = 34           # místo nahoře pro nadpis
+F_MIN, F_MAX = 20.0, 20000.0   # rozsah frekvenční osy spektra (slyšitelné pásmo)
+DB_MIN = -90.0                 # spodní okraj osy dB
+
+
+class GraphView(wx.Panel):
+    def __init__(self, parent, title: str):
+        super().__init__(parent)
+        self.title = title.upper()
+        self.info = ""     # text vpravo nahoře (špička, frekvence, ...)
+        self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_SIZE, lambda e: self.Refresh())
+
+    def _on_paint(self, event):
+        dc = wx.AutoBufferedPaintDC(self)
+        dc.SetBackground(wx.Brush(theme.BACKGROUND))
+        dc.Clear()
+        gc = wx.GraphicsContext.Create(dc)
+        w, h = self.GetClientSize()
+
+        gc.SetPen(wx.Pen(theme.BORDER, 1))
+        gc.SetBrush(wx.Brush(theme.VIEWPORT))
+        gc.DrawRoundedRectangle(0.5, 0.5, w - 1, h - 1, 12)
+
+        gc.SetFont(theme.font(9, bold=True), theme.TEXT_MUTED)
+        theme.draw_spaced(gc, self.title, MARGIN, 12)
+        gc.SetFont(theme.font(10), theme.TEXT_MUTED)
+        tw, _ = gc.GetTextExtent(self.info)
+        gc.DrawText(self.info, w - MARGIN - tw, 12)
+
+        # vnitřní plocha grafu
+        self.draw(gc, MARGIN, TOP, w - 2 * MARGIN, h - TOP - MARGIN)
+
+    def draw(self, gc, x, y, w, h):
+        """Přepíše podtřída: nakreslí obsah do obdélníku x, y, w, h."""
+
+
+class ScopeView(GraphView):
+    """Tvar vlny v čase. Svisle -1..1, vodorovně SCOPE_VIEW vzorků."""
+
+    def __init__(self, parent):
+        super().__init__(parent, "Scope")
+        self.samples = []
+        self.duration_ms = 0.0
+
+    def show(self, samples, duration_ms: float, peak_db: float):
+        self.samples = samples
+        self.duration_ms = duration_ms
+        clip = "  CLIP" if peak_db > -0.1 else ""
+        level = f"peak {peak_db:5.1f} dB" if peak_db > DB_MIN else "silence"
+        self.info = f"{level}   {duration_ms:.1f} ms{clip}"
+        self.Refresh(False)
+
+    def draw(self, gc, x, y, w, h):
+        mid = y + h / 2
+        scale = h / 2 * 0.9        # amplituda 1.0 = 90 % poloviny výšky
+
+        # mřížka: vodorovně 0, +-0.5, +-1; svisle každou milisekundu
+        gc.SetPen(wx.Pen(theme.GRID, 1))
+        for level in (-1, -0.5, 0.5, 1):
+            gc.StrokeLine(x, mid - level * scale, x + w, mid - level * scale)
+        if self.duration_ms > 0:
+            for ms in range(1, int(self.duration_ms) + 1):
+                px = x + w * ms / self.duration_ms
+                gc.StrokeLine(px, y, px, y + h)
+        gc.SetPen(wx.Pen(theme.BORDER, 1))
+        gc.StrokeLine(x, mid, x + w, mid)
+
+        n = len(self.samples)
+        if n < 2:
+            return
+        path = gc.CreatePath()
+        for i, s in enumerate(self.samples):
+            px = x + w * i / (n - 1)
+            py = mid - max(-1.1, min(1.1, float(s))) * scale
+            if i == 0:
+                path.MoveToPoint(px, py)
+            else:
+                path.AddLineToPoint(px, py)
+        gc.SetPen(wx.Pen(theme.ACCENT, 2))
+        gc.StrokePath(path)
+
+
+class SpectrumView(GraphView):
+    """Spektrum: vodorovně frekvence (logaritmicky 20 Hz - 20 kHz), svisle dB."""
+
+    def __init__(self, parent):
+        super().__init__(parent, "Spectrum")
+        self.freqs, self.levels = [], []
+
+    def show(self, freqs, levels_db, peak_hz):
+        self.freqs, self.levels = freqs, levels_db
+        self.info = f"strongest {peak_hz:.1f} Hz" if peak_hz else "silence"
+        self.Refresh(False)
+
+    @staticmethod
+    def _x_of(freq, x, w):
+        """Logaritmická osa: každá dekáda (20-200, 200-2000, ...) má stejnou šířku."""
+        return x + w * math.log(freq / F_MIN) / math.log(F_MAX / F_MIN)
+
+    def draw(self, gc, x, y, w, h):
+        y_of = lambda db: y + h * (db / DB_MIN)    # 0 dB nahoře, DB_MIN dole
+
+        # mřížka s popisky: frekvence dole, dB vlevo
+        gc.SetFont(theme.font(9), theme.TEXT_DIM)
+        for freq, label in ((50, ""), (100, "100"), (200, ""), (500, ""), (1000, "1k"),
+                            (2000, ""), (5000, ""), (10000, "10k")):
+            px = self._x_of(freq, x, w)
+            gc.SetPen(wx.Pen(theme.BORDER if label else theme.GRID, 1))
+            gc.StrokeLine(px, y, px, y + h)
+            if label:
+                gc.DrawText(label, px + 3, y + h - 14)
+        for db in (-20, -40, -60, -80):
+            gc.SetPen(wx.Pen(theme.GRID, 1))
+            gc.StrokeLine(x, y_of(db), x + w, y_of(db))
+            gc.DrawText(f"{db}", x + 3, y_of(db) + 2)
+
+        if len(self.levels) < 2:
+            return
+        # body křivky; koš k=0 (stejnosměrná složka) a vše pod 20 Hz vynecháme
+        points = [(self._x_of(f, x, w), y_of(max(DB_MIN, min(0.0, float(db)))))
+                  for f, db in zip(self.freqs, self.levels) if F_MIN <= f <= F_MAX]
+        if len(points) < 2:
+            return
+        line = gc.CreatePath()
+        line.MoveToPoint(*points[0])
+        for point in points[1:]:
+            line.AddLineToPoint(*point)
+        # výplň = stejná křivka uzavřená dolů k ose
+        area = gc.CreatePath()
+        area.AddPath(line)
+        area.AddLineToPoint(points[-1][0], y + h)
+        area.AddLineToPoint(points[0][0], y + h)
+        area.CloseSubpath()
+
+        gc.SetPen(wx.TRANSPARENT_PEN)
+        gc.SetBrush(wx.Brush(wx.Colour(255, 255, 255, 18)))   # jemná výplň pod křivkou
+        gc.FillPath(area)
+        gc.SetPen(gc.CreatePen(wx.GraphicsPenInfo(theme.ACCENT).Width(1.5)))   # wx.Pen umí jen celé pixely
+        gc.StrokePath(line)
