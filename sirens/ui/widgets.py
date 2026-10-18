@@ -51,6 +51,11 @@ class PillButton(wx.Control):
         self.SetMinSize((max(72, width), 30))
         self.Refresh()
 
+    def set_primary(self, primary: bool):
+        """Přepne vzhled (u záložek: vybraná záložka je bílá)."""
+        self.primary = primary
+        self.Refresh()
+
     def _set_hot(self, hot: bool):
         self.hot = hot
         self.Refresh()
@@ -75,8 +80,38 @@ class PillButton(wx.Control):
         gc.DrawText(self.label, (w - tw) / 2, (h - th) / 2)
 
 
+class TextButton(wx.Control):
+    """Malé tlačítko jen z textu (např. Remove u bloku). Pod myší zkorálovatí."""
+
+    def __init__(self, parent, label: str, on_click):
+        super().__init__(parent, style=wx.BORDER_NONE)
+        self.label, self.on_click = label, on_click
+        self.hot = False
+        self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
+        self.SetCursor(wx.Cursor(wx.CURSOR_HAND))
+        self.SetFont(theme.font(10))
+        width, height = self.GetTextExtent(label)
+        self.SetMinSize((width + 4, height + 4))
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_LEFT_UP, lambda e: self.on_click())
+        self.Bind(wx.EVT_ENTER_WINDOW, lambda e: self._set_hot(True))
+        self.Bind(wx.EVT_LEAVE_WINDOW, lambda e: self._set_hot(False))
+
+    def _set_hot(self, hot: bool):
+        self.hot = hot
+        self.Refresh()
+
+    def _on_paint(self, event):
+        dc = wx.AutoBufferedPaintDC(self)
+        dc.SetBackground(wx.Brush(self.GetParent().GetBackgroundColour()))
+        dc.Clear()
+        gc = wx.GraphicsContext.Create(dc)
+        gc.SetFont(theme.font(10), theme.ERROR if self.hot else theme.TEXT_DIM)
+        gc.DrawText(self.label, 2, 2)
+
+
 class StatusPill(wx.Control):
-    """Štítek se stavem dole pod grafy (načteno / chyba v sound.py)."""
+    """Štítek se stavem dole pod grafy (co je v racku, nápověda)."""
 
     def __init__(self, parent):
         super().__init__(parent, style=wx.BORDER_NONE)

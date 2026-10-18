@@ -1,97 +1,146 @@
 """Pravý panel s ovládáním (jako v Event Horizon / Flip).
 
-Nahoře je pevná část (výstup), pod ní posuvná část, kterou si plní kód
-v sound.py: skupiny s nadpisem a slidery s krátkým vysvětlením pod sebou.
-Panel sám o zvuku nic neví, jen staví ovládací prvky a volá on_change.
+Volitelně nahoře pevná část (např. hlasitost výstupu), pod ní posuvná část:
+skupiny s nadpisem a slidery s krátkým vysvětlením pod sebou.
+Panel sám o zvuku, obrazu ani světle nic neví, jen staví ovládací prvky
+a při změně volá zadané funkce.
 """
 
 import wx
 
 from sirens.ui import theme
 from sirens.ui.slider import Slider
-from sirens.ui.widgets import Caption
+from sirens.ui.widgets import Caption, PillButton, TextButton
 
 WIDTH = 340      # pevná šířka panelu
 PADDING = 16     # odsazení obsahu od okrajů panelu
 
 
 def divider(parent, vertical: bool = False) -> wx.Panel:
-    """Tenká čára mezi skupinami (nebo svislá mezi grafy a panelem)."""
+    """Tenká čára mezi skupinami (nebo svislá mezi obsahem a panelem)."""
     line = wx.Panel(parent, size=(1, -1) if vertical else (-1, 1))
     line.SetBackgroundColour(theme.BORDER)
     return line
 
 
 class Sidebar(wx.Panel):
-    def __init__(self, parent):
+    def __init__(self, parent, with_fixed: bool = False):
         super().__init__(parent)
         self.SetBackgroundColour(theme.SIDEBAR)
         self.SetMinSize((WIDTH, -1))
+        column = wx.BoxSizer(wx.VERTICAL)
 
-        # pevná část (hlasitost výstupu), nemaže se při novém načtení sound.py
-        self.fixed = wx.Panel(self)
-        self.fixed.SetBackgroundColour(theme.SIDEBAR)
-        self.fixed_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.fixed.SetSizer(self.fixed_sizer)
+        # pevná část, nemaže se při clear()
+        self.fixed = self.fixed_sizer = None
+        if with_fixed:
+            self.fixed = wx.Panel(self)
+            self.fixed.SetBackgroundColour(theme.SIDEBAR)
+            self.fixed_sizer = wx.BoxSizer(wx.VERTICAL)
+            self.fixed.SetSizer(self.fixed_sizer)
+            column.Add(self.fixed, 0, wx.EXPAND | wx.BOTTOM, PADDING)
+            column.Add(divider(self), 0, wx.EXPAND)
 
-        # posuvná část pro slidery ze sound.py
+        # posuvná část
         self.scroll = wx.ScrolledWindow(self)
         self.scroll.SetBackgroundColour(theme.SIDEBAR)
         self.scroll.SetScrollRate(0, 12)
         self.scroll_sizer = wx.BoxSizer(wx.VERTICAL)
         self.scroll.SetSizer(self.scroll_sizer)
-
-        column = wx.BoxSizer(wx.VERTICAL)
-        column.Add(self.fixed, 0, wx.EXPAND | wx.BOTTOM, PADDING)
-        column.Add(divider(self), 0, wx.EXPAND)
         column.Add(self.scroll, 1, wx.EXPAND)
         self.SetSizer(column)
 
     def _area(self, fixed: bool):
         return (self.fixed, self.fixed_sizer) if fixed else (self.scroll, self.scroll_sizer)
 
-    def add_group(self, title: str, fixed: bool = False):
-        """Nadpis nové skupiny. Od předchozí skupiny ji oddělí čára."""
+    def add_group(self, title: str, fixed: bool = False, actions=()):
+        """Nadpis nové skupiny. Od předchozí skupiny ji oddělí čára.
+
+        actions: malá textová tlačítka vpravo od nadpisu, seznam (popisek, funkce).
+        """
         parent, sizer = self._area(fixed)
         if sizer.GetItemCount() > 0:
             sizer.Add(divider(parent), 0, wx.EXPAND | wx.TOP, PADDING)
-        sizer.Add(Caption(parent, title), 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, PADDING)
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        row.Add(Caption(parent, title), 1, wx.ALIGN_CENTER_VERTICAL)
+        for label, on_click in actions:
+            row.Add(TextButton(parent, label, on_click), 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 8)
+        sizer.Add(row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, PADDING)
 
     def add_slider(self, label, lo, hi, default, unit="", log=False, help="",
                    on_change=None, value=None, fixed=False) -> Slider:
         """Slider a pod ním (volitelně) šedé vysvětlení, co dělá.
 
-        value: počáteční hodnota, pokud se liší od výchozí (po novém načtení sound.py).
+        value: počáteční hodnota, pokud se liší od výchozí (po překreslení panelu).
         """
         parent, sizer = self._area(fixed)
         slider = Slider(parent, label, lo, hi, default, unit, log, on_change, value)
-        sizer.AddSpacer(PADDING if fixed else 12)
+        sizer.AddSpacer(12)
         sizer.Add(slider, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, PADDING)
         if help:
-            text = wx.StaticText(parent, label=help)
-            text.SetForegroundColour(theme.TEXT_DIM)
-            text.SetFont(theme.font(10))
-            text.Wrap(WIDTH - 2 * PADDING)
-            sizer.AddSpacer(5)
-            sizer.Add(text, 0, wx.LEFT | wx.RIGHT, PADDING)
+            self._add_help(parent, sizer, help)
         return slider
 
+    def add_params(self, owner, fixed: bool = False):
+        """Slidery pro všechny PARAMS objektu owner (blok, obraz, světlo).
+
+        Pohyb slideru zavolá owner.set(popisek, hodnota).
+        """
+        for p in owner.PARAMS:
+            # label=p.label: lambda si musí zapamatovat tenhle popisek, ne poslední z cyklu
+            self.add_slider(p.label, p.lo, p.hi, p.default, p.unit, p.log, p.help,
+                            on_change=lambda v, label=p.label: owner.set(label, v),
+                            value=owner.get(p.label), fixed=fixed)
+
+    def add_button(self, label: str, on_click, fixed: bool = False) -> PillButton:
+        parent, sizer = self._area(fixed)
+        button = PillButton(parent, label, on_click)
+        sizer.Add(button, 0, wx.LEFT | wx.RIGHT | wx.TOP, PADDING)
+        return button
+
+    def add_text(self, label: str, value: str, on_change, help: str = "", fixed: bool = False):
+        """Textové políčko s popiskem (např. IP adresa). on_change(text) při každé změně."""
+        parent, sizer = self._area(fixed)
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        caption = wx.StaticText(parent, label=label)
+        caption.SetForegroundColour(theme.TEXT_MUTED)
+        caption.SetFont(theme.font(11))
+        field = wx.TextCtrl(parent, value=value, style=wx.BORDER_SIMPLE)
+        field.SetBackgroundColour(theme.VALUE_BOX)
+        field.SetForegroundColour(theme.TEXT)
+        field.SetFont(theme.font(11))
+        field.Bind(wx.EVT_TEXT, lambda e: on_change(field.GetValue().strip()))
+        row.Add(caption, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        row.Add(field, 1, wx.ALIGN_CENTER_VERTICAL)
+        sizer.AddSpacer(12)
+        sizer.Add(row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, PADDING)
+        if help:
+            self._add_help(parent, sizer, help)
+
+    def _add_help(self, parent, sizer, help: str):
+        text = wx.StaticText(parent, label=help)
+        text.SetForegroundColour(theme.TEXT_DIM)
+        text.SetFont(theme.font(10))
+        text.Wrap(WIDTH - 2 * PADDING)
+        sizer.AddSpacer(5)
+        sizer.Add(text, 0, wx.LEFT | wx.RIGHT, PADDING)
+
     def add_note(self, text: str, colour=theme.TEXT_DIM):
-        """Volný text v posuvné části (nápověda, nebo chyba v sound.py)."""
+        """Volný text v posuvné části (např. nápověda u prázdného racku)."""
         note = wx.StaticText(self.scroll, label=text)
         note.SetForegroundColour(colour)
         note.SetFont(theme.font(11))
         note.Wrap(WIDTH - 2 * PADDING)
-        self.scroll_sizer.Add(note, 0, wx.ALL, PADDING)
+        self.scroll_sizer.Add(note, 0, wx.LEFT | wx.RIGHT | wx.TOP, PADDING)
 
     def clear(self):
-        """Smaže všechno v posuvné části (před novým načtením sound.py)."""
+        """Smaže všechno v posuvné části (před novým vykreslením)."""
         self.scroll_sizer.Clear(delete_windows=True)
 
     def finish(self):
         """Po přidání prvků přepočítá rozložení a posuvník."""
         self.scroll_sizer.AddSpacer(PADDING)
-        self.fixed.Layout()
+        if self.fixed:
+            self.fixed.Layout()
         self.scroll.Layout()
         self.scroll.FitInside()
         self.Layout()

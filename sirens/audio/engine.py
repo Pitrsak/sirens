@@ -1,10 +1,10 @@
 """Zvukový engine: pyo server a pevný výstupní řetězec.
 
-    signál ze sound.py -> [zásuvka] -> hlasitost -> zap/vyp -> ořez -1..1 -> obě repro
+    signál z racku -> [zásuvka] -> hlasitost -> zap/vyp -> ořez -1..1 -> obě repro
                                   \\-> analýza (osciloskop, spektrum)
 
-Signál ze sound.py se dá kdykoli vyměnit (po uložení souboru), zbytek
-řetězce zůstává. Výměna proběhne s krátkým prolnutím, aby to necvaklo.
+Signál z racku se dá kdykoli vyměnit (po přidání nebo smazání bloku),
+zbytek řetězce zůstává. Výměna proběhne s krátkým prolnutím, aby to necvaklo.
 """
 
 from pyo import Clip, InputFader, Mix, Pan, Server, Sig, SigTo
@@ -24,12 +24,12 @@ class AudioEngine:
 
         # pyo objekty lze vytvářet až po boot() serveru.
         self.silence = Sig(0)
-        self.source = InputFader(self.silence)   # "zásuvka" pro signál ze sound.py
+        self.source = InputFader(self.silence)   # "zásuvka" pro signál z racku
         self.current = None                      # právě hrající signál (držíme odkaz, jinak by zanikl)
 
         self.volume = SigTo(0.5, time=0.05, init=0.5)
         self.on = SigTo(1, time=0.05, init=1)    # tlačítko Stop/Play: 0 = ticho, 1 = hraje
-        # Ořez na -1..1 je pojistka: chyba v kódu (např. mul=100) nepřebudí repro.
+        # Ořez na -1..1 je pojistka: hodně hlasitých bloků najednou nepřebudí repro.
         self.safe = Clip(self.source * self.volume * self.on, min=-1, max=1)
         # Mono signál dáme doprostřed mezi levý a pravý reproduktor.
         self.output = Pan(self.safe, outs=2, pan=0.5).out()
@@ -40,8 +40,8 @@ class AudioEngine:
     def play(self, signal):
         """Připojí nový signál na výstup. None = ticho.
 
-        Mix(..., voices=1) sečte vše do jednoho kanálu, takže sound.py může
-        vrátit jeden objekt, víc kanálů (Sine([440, 660])) i seznam objektů.
+        Mix(..., voices=1) sečte vše do jednoho kanálu, takže se sem dá poslat
+        jeden objekt, víc kanálů (Sine([440, 660])) i seznam objektů (výstupy bloků).
         """
         self.current = Mix(signal, voices=1) if signal is not None else self.silence
         self.source.setInput(self.current, fadetime=FADE_TIME)

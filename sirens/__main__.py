@@ -8,7 +8,7 @@ from sirens.ui.main_frame import MainFrame
 
 def main() -> None:
     app = wx.App()
-    engine = AudioEngine()   # pyo server musí běžet dřív, než sound.py vytvoří první objekty
+    engine = AudioEngine()   # pyo server musí běžet dřív, než bloky vytvoří první pyo objekty
     frame = MainFrame(engine)
     frame.Show()
     app.MainLoop()

@@ -1,30 +1,26 @@
-"""Hlavní okno, rozložení jako v Event Horizon / Flip:
+"""Hlavní okno: hlavička se záložkami a pod ní obsah vybrané záložky.
 
     +--------------------------------------------------------------+
-    | SIRENS                                     [Reload]  [Stop]  |
-    +-----------------------------------------+--------------------+
-    |  SCOPE (tvar vlny)                      | OUTPUT             |
-    |                                         |   Master           |
-    |  SPECTRUM (vlastní DFT)                 | ------------------ |
-    |                                         | slidery ze         |
-    |  [stav: načteno / chyba v sound.py]     | sound.py           |
-    +-----------------------------------------+--------------------+
+    | SIRENS   [Sound] [Visual] [Light]                    [Stop]  |
+    +--------------------------------------------------------------+
+    |  obsah záložky (SoundPage, VisualPage nebo LightPage)        |
+    +--------------------------------------------------------------+
 
-Časovač běží 30x za sekundu: překreslí grafy a dvakrát za sekundu se
-podívá, jestli se sound.py neuložil (pak ho načte znovu).
+Časovač běží 30x za sekundu: vezme nový úsek zvuku z analyzátoru
+a předá ho záložkám. Zvuk i světlo běží pořád, obraz se počítá jen
+na záložce Visual (jinak by zbytečně zatěžoval počítač).
 """
 
 import wx
 
-from sirens.audio.analyzer import SCOPE_VIEW
-from sirens.live import SoundLoader
 from sirens.ui import theme
-from sirens.ui.sidebar import Sidebar, divider
-from sirens.ui.views import ScopeView, SpectrumView
-from sirens.ui.widgets import Caption, PillButton, StatusPill
+from sirens.ui.light_page import LightPage
+from sirens.ui.sidebar import divider
+from sirens.ui.sound_page import SoundPage
+from sirens.ui.visual_page import VisualPage
+from sirens.ui.widgets import Caption, PillButton
 
 FPS = 30
-WATCH_EVERY = 15   # po kolika snímcích kontrolovat sound.py (15 = 2x za sekundu)
 
 
 class MainFrame(wx.Frame):
@@ -33,43 +29,26 @@ class MainFrame(wx.Frame):
         self.SetMinSize((900, 600))
         self.engine = engine
         self.playing = True
-        self.ticks = 0
 
         root = wx.Panel(self)
         root.SetBackgroundColour(theme.BACKGROUND)
-        self.sidebar = Sidebar(root)
-
-        workspace = wx.BoxSizer(wx.HORIZONTAL)
-        workspace.Add(self._build_viewport(root), 1, wx.EXPAND)
-        workspace.Add(divider(root, vertical=True), 0, wx.EXPAND)
-        workspace.Add(self.sidebar, 0, wx.EXPAND)
+        self.sound_page = SoundPage(root, engine)
+        self.visual_page = VisualPage(root)
+        self.light_page = LightPage(root)
+        self.pages = {"Sound": self.sound_page, "Visual": self.visual_page, "Light": self.light_page}
 
         layout = wx.BoxSizer(wx.VERTICAL)
         layout.Add(self._build_header(root), 0, wx.EXPAND)
         layout.Add(divider(root), 0, wx.EXPAND)
-        layout.Add(workspace, 1, wx.EXPAND)
+        for page in self.pages.values():
+            layout.Add(page, 1, wx.EXPAND)
         root.SetSizer(layout)
-
-        # pevná skupina OUTPUT: celková hlasitost
-        self.sidebar.add_group("Output", fixed=True)
-        self.sidebar.add_slider("Master", 0, 1, 0.5, on_change=engine.set_volume, fixed=True,
-                                help="Overall loudness. After it the signal is clipped to -1..1, "
-                                     "so a mistake in sound.py cannot blast the speakers.")
-
-        self.loader = SoundLoader(engine, self.sidebar)
-        self._reload()
-
-        # Cmd+R (na Windows/Linuxu Ctrl+R) = načíst sound.py znovu
-        reload_id = wx.NewIdRef()
-        self.Bind(wx.EVT_MENU, lambda e: self._reload(), id=reload_id)
-        self.SetAcceleratorTable(wx.AcceleratorTable([(wx.ACCEL_CMD, ord("R"), reload_id)]))
+        self._select("Sound")
 
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._on_tick, self.timer)
         self.timer.Start(int(1000 / FPS))
         self.Bind(wx.EVT_CLOSE, self._on_close)
-
-    # --- stavba UI ---
 
     def _build_header(self, parent):
         header = wx.Panel(parent)
@@ -77,37 +56,26 @@ class MainFrame(wx.Frame):
         header.SetMinSize((-1, 56))
         logo = Caption(header, "Sirens", colour=theme.TEXT, size=13, spacing=4)
         logo.SetMinSize((140, 24))
-        reload_button = PillButton(header, "Reload", self._reload)
-        self.play_button = PillButton(header, "Stop", self._toggle_playing, primary=True)
 
         row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(logo, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 24)
+        self.tabs = {}
+        for name in ("Sound", "Visual", "Light"):
+            # n=name: lambda si musí zapamatovat tuhle záložku, ne poslední z cyklu
+            self.tabs[name] = PillButton(header, name, lambda n=name: self._select(n))
+            row.Add(self.tabs[name], 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
         row.AddStretchSpacer()
-        row.Add(reload_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        self.play_button = PillButton(header, "Stop", self._toggle_playing)
         row.Add(self.play_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 20)
         header.SetSizer(row)
         return header
 
-    def _build_viewport(self, parent):
-        self.scope = ScopeView(parent)
-        self.spectrum = SpectrumView(parent)
-        self.status = StatusPill(parent)
-        column = wx.BoxSizer(wx.VERTICAL)
-        column.Add(self.scope, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 20)
-        column.Add(self.spectrum, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 20)
-        column.Add(self.status, 0, wx.EXPAND | wx.ALL, 20)
-        return column
-
-    # --- akce ---
-
-    def _reload(self):
-        text, error = self.loader.load()
-        if self.sidebar.scroll_sizer.GetItemCount() == 0:
-            hint = "Fix the error in sound.py and save again." if error else \
-                   "Sliders from sound.py appear here (ui.slider)."
-            self.sidebar.add_note(hint)
-        self.sidebar.finish()
-        self.status.show(text, error)
+    def _select(self, name: str):
+        """Ukáže vybranou záložku, ostatní skryje. Vybraná má bílé tlačítko."""
+        for tab_name, page in self.pages.items():
+            page.Show(tab_name == name)
+            self.tabs[tab_name].set_primary(tab_name == name)
+        page.GetParent().Layout()
 
     def _toggle_playing(self):
         self.playing = not self.playing
@@ -115,20 +83,16 @@ class MainFrame(wx.Frame):
         self.play_button.set_label("Stop" if self.playing else "Play")
         self.play_button.GetParent().Layout()
 
-    # --- smyčka ---
-
     def _on_tick(self, event):
-        self.ticks += 1
-        if self.ticks % WATCH_EVERY == 0 and self.loader.changed():
-            self._reload()
-
         analyzer = self.engine.analyzer
-        if analyzer.update():
-            duration_ms = SCOPE_VIEW / analyzer.sample_rate * 1000
-            self.scope.show(analyzer.scope(), duration_ms, analyzer.peak_level_db())
-            self.spectrum.show(analyzer.freqs, analyzer.spectrum, analyzer.peak_frequency())
+        if analyzer.update() and self.sound_page.IsShown():
+            self.sound_page.tick(analyzer)
+        if self.visual_page.IsShown():
+            self.visual_page.tick(analyzer)
+        self.light_page.tick(analyzer)
 
     def _on_close(self, event):
         self.timer.Stop()
+        self.light_page.close()
         self.engine.close()
         event.Skip()

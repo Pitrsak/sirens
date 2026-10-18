@@ -152,3 +152,47 @@ class SpectrumView(GraphView):
         gc.FillPath(area)
         gc.SetPen(gc.CreatePen(wx.GraphicsPenInfo(theme.ACCENT).Width(1.5)))   # wx.Pen umí jen celé pixely
         gc.StrokePath(line)
+
+
+class VisualView(GraphView):
+    """Obraz z Painteru, zvětšený do rámečku se zachováním poměru stran."""
+
+    def __init__(self, parent):
+        super().__init__(parent, "Visual")
+        self.bitmap = None
+
+    def show(self, image):
+        """image: pole výška x šířka x 3 (RGB, 0..255) z Painter.render()."""
+        height, width = image.shape[:2]
+        self.bitmap = wx.Bitmap.FromBuffer(width, height, image)
+        self.info = f"{width} x {height}"
+        self.Refresh(False)
+
+    def draw(self, gc, x, y, w, h):
+        if self.bitmap is None:
+            return
+        bw, bh = self.bitmap.GetSize()
+        scale = min(w / bw, h / bh)          # celý obraz se musí vejít
+        dw, dh = bw * scale, bh * scale
+        gc.DrawBitmap(self.bitmap, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh)
+
+
+class LightView(GraphView):
+    """Náhled světla: kruh v barvě, kterou světlo právě svítí, a hodnoty R, G, B."""
+
+    def __init__(self, parent):
+        super().__init__(parent, "Light")
+        self.rgb = (0, 0, 0)
+
+    def show(self, rgb, address: int):
+        self.rgb = tuple(rgb)
+        r, g, b = self.rgb
+        self.info = f"R {r}   G {g}   B {b}   channels {address}-{address + 2}"
+        self.Refresh(False)
+
+    def draw(self, gc, x, y, w, h):
+        radius = min(w, h) * 0.35
+        cx, cy = x + w / 2, y + h / 2
+        gc.SetPen(wx.Pen(theme.BORDER, 1))
+        gc.SetBrush(wx.Brush(wx.Colour(*self.rgb)))
+        gc.DrawEllipse(cx - radius, cy - radius, 2 * radius, 2 * radius)

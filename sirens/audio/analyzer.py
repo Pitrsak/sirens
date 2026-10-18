@@ -18,6 +18,7 @@ N = 2048          # délka úseku (~46 ms při 44,1 kHz), rozlišení spektra = 
 SCOPE_VIEW = 512  # kolik vzorků ukáže osciloskop (~11,6 ms)
 DB_FLOOR = -90.0  # vše tišší bereme jako ticho
 FALL_DB = 2.5     # o kolik dB za snímek smí špička ve spektru klesnout (aby neblikala)
+BASS, MID, HIGH = (20, 250), (250, 2000), (2000, 20000)   # pásma v Hz pro obraz a světlo
 
 
 class Analyzer:
@@ -93,3 +94,16 @@ class Analyzer:
         a, b, c = s[k - 1], s[k], s[k + 1]
         shift = 0.5 * (a - c) / (a - 2 * b + c) if a - 2 * b + c != 0 else 0.0
         return (k + shift) * self.sample_rate / self.size
+
+    def band(self, lo_hz: float, hi_hz: float) -> float:
+        """Síla pásma lo..hi Hz jako číslo 0..1, podle kterého reaguje obraz a světlo.
+
+        Bereme nejsilnější složku v pásmu: -60 dB a tišší = 0, 0 dB = 1.
+        """
+        inside = (self.freqs >= lo_hz) & (self.freqs < hi_hz)
+        db = float(self.spectrum[inside].max())
+        return min(1.0, max(0.0, (db + 60) / 60))
+
+    def bands(self) -> tuple[float, float, float]:
+        """Basy, středy a výšky (0..1)."""
+        return self.band(*BASS), self.band(*MID), self.band(*HIGH)
