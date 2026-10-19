@@ -1,39 +1,33 @@
-"""Rack: seznam bloků, ze kterých se právě skládá zvuk.
+"""Rack: bloky, ze kterých se skládá zvuk jednoho nástroje.
 
-Aplikace začíná s prázdným rackem (ticho). Uživatel přidává, maže a posouvá
-bloky v UI; po každé změně rack bloky znovu propojí shora dolů a výsledek
-pošle do enginu.
+Uživatel přidává, maže a posouvá bloky v UI (viz stack.py); po každé změně
+rack bloky znovu propojí shora dolů a výsledek předá nástroji.
 """
 
-from sirens.audio.blocks import Block
+from sirens.stack import Stack
 
 
-class Rack:
-    def __init__(self, engine):
-        self.engine = engine
-        self.blocks: list[Block] = []
+class Rack(Stack):
+    def __init__(self, instrument):
+        super().__init__()
+        self.instrument = instrument
 
-    def add(self, block_class) -> Block:
-        """Vytvoří nový blok daného druhu a přidá ho na konec (dolů)."""
-        block = block_class()
-        self.blocks.append(block)
-        self._connect()
-        return block
+    @property
+    def blocks(self):
+        return self.items
 
-    def remove(self, block: Block):
-        self.blocks.remove(block)
-        self._connect()
+    def create(self, block_class):
+        return block_class(self.instrument)
 
-    def move(self, block: Block, step: int):
-        """Posune blok o step míst (-1 = nahoru, +1 = dolů)."""
-        i = self.blocks.index(block)
-        j = i + step
-        if 0 <= j < len(self.blocks):
-            self.blocks[i], self.blocks[j] = self.blocks[j], self.blocks[i]
-            self._connect()
+    def changed(self):
+        """Propojí bloky shora dolů a výsledek předá nástroji (nic = ticho)."""
+        flow = None
+        for block in self.blocks:
+            flow = block.connect(flow)
+        self.instrument.play(flow)
 
     def describe(self) -> str:
-        """Cesta zvuku jako text, např. "Sine + Noise -> Low-pass"."""
+        """Cesta zvuku jako text, např. "Oscillator + Noise -> Filter"."""
         text = ""
         for block in self.blocks:
             if not text:
@@ -41,10 +35,3 @@ class Rack:
             else:
                 text += (" + " if block.IS_SOURCE else " -> ") + block.NAME
         return text
-
-    def _connect(self):
-        """Propojí bloky shora dolů a výsledek pošle do enginu (nic = ticho)."""
-        flow = None
-        for block in self.blocks:
-            flow = block.connect(flow)
-        self.engine.play(flow)

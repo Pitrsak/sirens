@@ -136,3 +136,53 @@ class StatusPill(wx.Control):
         gc.SetFont(theme.font(11), theme.ERROR if self.error else theme.TEXT_MUTED)
         _, th = gc.GetTextExtent(self.text or " ")
         gc.DrawText(self.text, 14, (h - th) / 2)
+
+
+class ChoiceRow(wx.Control):
+    """Popisek a řada tlačítek, z nichž je vybrané právě jedno (např. Sine / Saw / Square).
+
+    on_change(index) dostane pořadí vybrané možnosti (0, 1, 2, ...).
+    """
+
+    LABEL_WIDTH = 86
+    HEIGHT = 26
+
+    def __init__(self, parent, label: str, options, index: int, on_change):
+        super().__init__(parent, style=wx.BORDER_NONE)
+        self.label, self.options, self.index, self.on_change = label, list(options), index, on_change
+        self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
+        self.SetMinSize((-1, self.HEIGHT))
+        self.SetCursor(wx.Cursor(wx.CURSOR_HAND))
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_LEFT_DOWN, self._on_down)
+
+    def _option_rects(self):
+        """Obdélník (x, šířka) pro každou možnost: zbytek šířky rozdělený rovným dílem."""
+        w, _ = self.GetClientSize()
+        width = (w - self.LABEL_WIDTH) / len(self.options)
+        return [(self.LABEL_WIDTH + i * width, width) for i in range(len(self.options))]
+
+    def _on_down(self, event):
+        for i, (x, width) in enumerate(self._option_rects()):
+            if x <= event.GetX() < x + width:
+                self.index = i
+                self.Refresh()
+                self.on_change(i)
+
+    def _on_paint(self, event):
+        dc = wx.AutoBufferedPaintDC(self)
+        dc.SetBackground(wx.Brush(self.GetParent().GetBackgroundColour()))
+        dc.Clear()
+        gc = wx.GraphicsContext.Create(dc)
+        _, h = self.GetClientSize()
+        gc.SetFont(theme.font(11), theme.TEXT_MUTED)
+        _, th = gc.GetTextExtent(self.label)
+        gc.DrawText(self.label, 0, (h - th) / 2)
+        for i, (x, width) in enumerate(self._option_rects()):
+            selected = i == self.index
+            gc.SetPen(wx.Pen(theme.BORDER, 1))
+            gc.SetBrush(wx.Brush(theme.SLIDER_FILL_HOT if selected else theme.SLIDER_TRACK))
+            gc.DrawRoundedRectangle(x + 1, 0.5, width - 2, h - 1, 4)
+            gc.SetFont(theme.font(10, bold=selected), theme.TEXT if selected else theme.TEXT_MUTED)
+            tw, th = gc.GetTextExtent(self.options[i])
+            gc.DrawText(self.options[i], x + (width - tw) / 2, (h - th) / 2)

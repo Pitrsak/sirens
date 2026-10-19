@@ -23,8 +23,10 @@ GAP = 6            # mezera mezi pruhem a rámečkem
 RADIUS = 4         # zaoblení rohů
 
 
-def format_value(value: float, lo: float, hi: float) -> str:
+def format_value(value: float, lo: float, hi: float, step: float = 0) -> str:
     """Počet desetinných míst podle velikosti rozsahu (0-2000 Hz vs. 0-1)."""
+    if step and step == int(step):
+        return f"{value:.0f}"          # celá čísla (oktávy, půltóny, ...)
     span = hi - lo
     if span >= 200:
         return f"{value:.0f}"
@@ -36,12 +38,14 @@ def format_value(value: float, lo: float, hi: float) -> str:
 
 
 class Slider(wx.Control):
-    def __init__(self, parent, label, lo, hi, default, unit="", log=False, on_change=None, value=None):
+    def __init__(self, parent, label, lo, hi, default, unit="", log=False, on_change=None, value=None,
+                 step=0):
         super().__init__(parent, style=wx.BORDER_NONE)
         if log and lo <= 0:
             raise ValueError(f"Slider '{label}': logaritmický slider musí začínat nad nulou")
         self.label, self.lo, self.hi, self.default = label, lo, hi, default
         self.unit, self.log = unit, log
+        self.step = step             # > 0: hodnota skáče po krocích (např. celé oktávy)
         self.on_change = on_change   # funkce(hodnota), volá se při každé změně
         self.value = default if value is None else value
         self.hot = False             # je myš nad sliderem? (pruh se trochu zesvětlí)
@@ -74,6 +78,8 @@ class Slider(wx.Control):
         return self.lo + pos * (self.hi - self.lo)
 
     def set_value(self, value: float):
+        if self.step:
+            value = self.lo + round((value - self.lo) / self.step) * self.step
         self.value = min(self.hi, max(self.lo, value))
         self.Refresh()
         if self.on_change:
@@ -133,7 +139,7 @@ class Slider(wx.Control):
         if self.editor:
             return
         x, y, w, h = self._box_rect()
-        self.editor = wx.TextCtrl(self, value=format_value(self.value, self.lo, self.hi),
+        self.editor = wx.TextCtrl(self, value=format_value(self.value, self.lo, self.hi, self.step),
                                   pos=(x + 4, y + 5), size=(w - 8, h - 10),
                                   style=wx.TE_PROCESS_ENTER | wx.TE_RIGHT | wx.BORDER_NONE)
         self.editor.SetBackgroundColour(theme.VALUE_BOX)
@@ -193,7 +199,7 @@ class Slider(wx.Control):
         gc.SetBrush(wx.Brush(theme.VALUE_BOX))
         gc.DrawRoundedRectangle(x + 0.5, y + 0.5, w - 1, h - 1, RADIUS)
         if not self.editor:
-            text = format_value(self.value, self.lo, self.hi)
+            text = format_value(self.value, self.lo, self.hi, self.step)
             gc.SetFont(theme.font(11, bold=True), theme.TEXT)
             tw, th = gc.GetTextExtent(text)
             gc.DrawText(text, x + w - tw - 8, y + (h - th) / 2)

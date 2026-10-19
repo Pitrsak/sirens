@@ -17,6 +17,13 @@ class Param:
     unit: str = ""       # jednotka za číslem, např. "Hz"
     log: bool = False    # logaritmický průběh (pro frekvence a časy)
     help: str = ""       # krátké vysvětlení pod sliderem
+    step: float = 0      # > 0: slider skáče po krocích (např. 1 = celá čísla)
+    choices: tuple = ()  # místo slideru řada tlačítek; hodnota = pořadí vybrané možnosti
+
+
+def Choice(label: str, choices: tuple, default: int = 0, help: str = "") -> Param:
+    """Parametr s pevnými možnostmi, např. tvar vlny Sine / Saw / Square."""
+    return Param(label, 0, len(choices) - 1, default, step=1, help=help, choices=choices)
 
 
 class Adjustable:
@@ -26,6 +33,7 @@ class Adjustable:
 
     def __init__(self):
         self.settings = {p.label: p.default for p in self.PARAMS}
+        self.automation = {}    # popisek -> {takt: hodnota}, viz song.py
 
     def get(self, label: str) -> float:
         return self.settings[label]

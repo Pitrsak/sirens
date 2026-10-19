@@ -1,0 +1,123 @@
+"""Píseň: stopy, patterny s notami, aranžmá na časové ose a automatizace sliderů.
+
+    Song
+     ├─ tempo (BPM), délka časové osy v taktech
+     └─ Track (stopa) x až 8
+         ├─ instrument   vlastní nástroj (obálka + rack bloků), hraje na svém MIDI kanálu
+         ├─ patterns     A..H: noty, každý pattern 1, 2 nebo 4 takty dlouhý
+         ├─ current      pattern, který se právě edituje (a hraje v režimu Loop)
+         ├─ arrangement  takt -> pattern (časová osa); prázdný takt = stopa mlčí
+         └─ muted
+
+Čas se počítá v krocích: jeden krok = šestnáctinová nota, takt = 16 kroků.
+Automatizace patří k nástroji a k blokům (owner.automation): pro každý slider
+slovník takt -> hodnota; mezi zadanými takty se hodnota plynule mění.
+"""
+
+from dataclasses import dataclass
+
+from sirens.audio.instrument import Instrument
+
+STEPS_PER_BAR = 16
+PATTERN_NAMES = "ABCDEFGH"
+MAX_TRACKS = 8
+
+
+@dataclass
+class Note:
+    step: int      # začátek v krocích od začátku patternu
+    pitch: int     # MIDI číslo noty (60 = C4)
+    length: int    # délka v krocích
+
+
+class Pattern:
+    def __init__(self, bars: int = 1):
+        self.bars = bars
+        self.notes: list[Note] = []
+
+    def steps(self) -> int:
+        return self.bars * STEPS_PER_BAR
+
+    def note_at(self, step: int, pitch: int):
+        """Nota, která na daném kroku a výšce zní (nebo None)."""
+        for note in self.notes:
+            if note.pitch == pitch and note.step <= step < note.step + note.length:
+                return note
+        return None
+
+
+class Track:
+    def __init__(self, name: str, channel: int):
+        self.name = name
+        self.instrument = Instrument(channel)
+        self.patterns = {name: Pattern() for name in PATTERN_NAMES}
+        self.current = "A"
+        self.arrangement: dict[int, str] = {}
+        self.muted = False
+        self.view_low = 48          # nejnižší nota zobrazená v editoru patternu (C3)
+
+    def automated_owners(self):
+        """Nástroj a jeho bloky: všechno, co může mít automatizované slidery."""
+        return [self.instrument] + self.instrument.rack.blocks
+
+    def pattern_at_bar(self, bar: int):
+        """Pattern a takt uvnitř něj, který stopa hraje v daném taktu písně (nebo None).
+
+        Víc taktů za sebou se stejným patternem = pattern hraje dál (2. takt, 3. takt...).
+        """
+        name = self.arrangement.get(bar)
+        if name is None:
+            return None
+        start = bar
+        while self.arrangement.get(start - 1) == name:
+            start -= 1
+        pattern = self.patterns[name]
+        return pattern, (bar - start) % pattern.bars
+
+
+class Song:
+    def __init__(self):
+        self.tempo = 110
+        self.bars = 32                      # délka časové osy
+        self.tracks: list[Track] = []
+
+    def add_track(self) -> Track | None:
+        """Nová stopa na volném MIDI kanálu (1-8). None, když už je jich maximum."""
+        used = {track.instrument.channel for track in self.tracks}
+        free = [ch for ch in range(1, MAX_TRACKS + 1) if ch not in used]
+        if not free:
+            return None
+        track = Track(f"Track {len(self.tracks) + 1}", free[0])
+        self.tracks.append(track)
+        return track
+
+    def remove_track(self, track: Track):
+        track.instrument.rack.clear()
+        self.tracks.remove(track)
+
+    def last_bar(self) -> int:
+        """Počet taktů do konce posledního použitého taktu (aspoň 1)."""
+        used = [bar for track in self.tracks for bar in list(track.arrangement)]
+        return max(used) + 1 if used else 1
+
+    def outputs(self):
+        """Výstupy všech nástrojů pro mix v enginu."""
+        return [track.instrument.output for track in self.tracks]
+
+
+def lane_value(lane: dict, position: float):
+    """Hodnota automatizace v daném místě (v taktech, např. 3.5 = půlka 4. taktu).
+
+    Hodnota zadaná pro takt platí na jeho začátku; mezi dvěma zadanými takty
+    se mění lineárně, před prvním a za posledním zůstává stejná. Prázdná = None.
+    """
+    if not lane:
+        return None
+    bars = sorted(list(lane))
+    if position <= bars[0]:
+        return lane[bars[0]]
+    for left, right in zip(bars, bars[1:]):
+        if left <= position < right:
+            t = (position - left) / (right - left)
+            return lane[left] + t * (lane[right] - lane[left])
+    return lane[bars[-1]]

@@ -32,20 +32,26 @@ class LightPage(wx.Panel):
         column.Add(self.status, 0, wx.EXPAND | wx.ALL, 20)
 
         self.sidebar = Sidebar(self)
-        self.sidebar.add_group("Art-Net")
-        self.sidebar.add_text("IP", self.ip, self._set_ip,
-                              help="Address of the Art-Net node or lighting console.")
-        self.send_button = self.sidebar.add_button("Start sending", self._toggle_sending)
-        self.sidebar.add_group("Light")
-        self.sidebar.add_note("Bass lights red, middles green, highs blue.")
-        self.sidebar.add_params(self.rig)
-        self.sidebar.finish()
+        self.refresh()
 
         row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(column, 1, wx.EXPAND)
         row.Add(divider(self, vertical=True), 0, wx.EXPAND)
         row.Add(self.sidebar, 0, wx.EXPAND)
         self.SetSizer(row)
+
+    def refresh(self):
+        """Postaví ovládání podle aktuálních hodnot (i po otevření souboru)."""
+        self.sidebar.clear()
+        self.sidebar.add_group("Art-Net")
+        self.sidebar.add_text("IP", self.ip, self._set_ip,
+                              help="Address of the Art-Net node or lighting console.")
+        self.send_button = self.sidebar.add_button(
+            "Stop sending" if self.sending else "Start sending", self._toggle_sending)
+        self.sidebar.add_group("Light")
+        self.sidebar.add_note("Bass lights red, middles green, highs blue.")
+        self.sidebar.add_params(self.rig)
+        self.sidebar.finish()
 
     def _set_ip(self, text: str):
         self.ip = text

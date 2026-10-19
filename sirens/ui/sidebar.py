@@ -10,7 +10,7 @@ import wx
 
 from sirens.ui import theme
 from sirens.ui.slider import Slider
-from sirens.ui.widgets import Caption, PillButton, TextButton
+from sirens.ui.widgets import Caption, ChoiceRow, PillButton, TextButton
 
 WIDTH = 340      # pevná šířka panelu
 PADDING = 16     # odsazení obsahu od okrajů panelu
@@ -67,13 +67,13 @@ class Sidebar(wx.Panel):
         sizer.Add(row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, PADDING)
 
     def add_slider(self, label, lo, hi, default, unit="", log=False, help="",
-                   on_change=None, value=None, fixed=False) -> Slider:
+                   on_change=None, value=None, fixed=False, step=0) -> Slider:
         """Slider a pod ním (volitelně) šedé vysvětlení, co dělá.
 
         value: počáteční hodnota, pokud se liší od výchozí (po překreslení panelu).
         """
         parent, sizer = self._area(fixed)
-        slider = Slider(parent, label, lo, hi, default, unit, log, on_change, value)
+        slider = Slider(parent, label, lo, hi, default, unit, log, on_change, value, step)
         sizer.AddSpacer(12)
         sizer.Add(slider, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, PADDING)
         if help:
@@ -87,9 +87,20 @@ class Sidebar(wx.Panel):
         """
         for p in owner.PARAMS:
             # label=p.label: lambda si musí zapamatovat tenhle popisek, ne poslední z cyklu
-            self.add_slider(p.label, p.lo, p.hi, p.default, p.unit, p.log, p.help,
-                            on_change=lambda v, label=p.label: owner.set(label, v),
-                            value=owner.get(p.label), fixed=fixed)
+            on_change = lambda v, label=p.label: owner.set(label, v)
+            if p.choices:
+                self.add_choice(p.label, p.choices, round(owner.get(p.label)), on_change, p.help, fixed)
+            else:
+                self.add_slider(p.label, p.lo, p.hi, p.default, p.unit, p.log, p.help,
+                                on_change=on_change, value=owner.get(p.label), fixed=fixed, step=p.step)
+
+    def add_choice(self, label, options, index, on_change, help="", fixed=False):
+        """Řada tlačítek s možnostmi (vybrat jde právě jedna)."""
+        parent, sizer = self._area(fixed)
+        sizer.AddSpacer(12)
+        sizer.Add(ChoiceRow(parent, label, options, index, on_change), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, PADDING)
+        if help:
+            self._add_help(parent, sizer, help)
 
     def add_button(self, label: str, on_click, fixed: bool = False) -> PillButton:
         parent, sizer = self._area(fixed)
@@ -100,17 +111,31 @@ class Sidebar(wx.Panel):
     def add_text(self, label: str, value: str, on_change, help: str = "", fixed: bool = False):
         """Textové políčko s popiskem (např. IP adresa). on_change(text) při každé změně."""
         parent, sizer = self._area(fixed)
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        caption = wx.StaticText(parent, label=label)
-        caption.SetForegroundColour(theme.TEXT_MUTED)
-        caption.SetFont(theme.font(11))
         field = wx.TextCtrl(parent, value=value, style=wx.BORDER_SIMPLE)
         field.SetBackgroundColour(theme.VALUE_BOX)
         field.SetForegroundColour(theme.TEXT)
         field.SetFont(theme.font(11))
         field.Bind(wx.EVT_TEXT, lambda e: on_change(field.GetValue().strip()))
+        self._add_labelled(parent, sizer, label, field, help)
+
+    def add_dropdown(self, label: str, options, index: int, on_change, help: str = "", fixed: bool = False):
+        """Rozbalovací seznam s popiskem. on_change(pořadí vybrané položky)."""
+        parent, sizer = self._area(fixed)
+        choice = wx.Choice(parent, choices=list(options))
+        if options:
+            choice.SetSelection(index)
+        choice.Bind(wx.EVT_CHOICE, lambda e: on_change(choice.GetSelection()))
+        self._add_labelled(parent, sizer, label, choice, help)
+
+    def _add_labelled(self, parent, sizer, label: str, control, help: str):
+        """Popisek vlevo, prvek (políčko, seznam) vpravo, pod nimi vysvětlení."""
+        caption = wx.StaticText(parent, label=label)
+        caption.SetForegroundColour(theme.TEXT_MUTED)
+        caption.SetFont(theme.font(11))
+        caption.SetMinSize((60, -1))
+        row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(caption, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
-        row.Add(field, 1, wx.ALIGN_CENTER_VERTICAL)
+        row.Add(control, 1, wx.ALIGN_CENTER_VERTICAL)
         sizer.AddSpacer(12)
         sizer.Add(row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, PADDING)
         if help:
