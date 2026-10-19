@@ -149,13 +149,14 @@ class Sidebar(wx.Panel):
         sizer.AddSpacer(5)
         sizer.Add(text, 0, wx.LEFT | wx.RIGHT, PADDING)
 
-    def add_note(self, text: str, colour=theme.TEXT_DIM):
+    def add_note(self, text: str, colour=theme.TEXT_DIM) -> wx.StaticText:
         """Volný text v posuvné části (např. nápověda u prázdného racku)."""
         note = wx.StaticText(self.scroll, label=text)
         note.SetForegroundColour(colour)
         note.SetFont(theme.font(11))
         note.Wrap(WIDTH - 2 * PADDING)
         self.scroll_sizer.Add(note, 0, wx.LEFT | wx.RIGHT | wx.TOP, PADDING)
+        return note
 
     def clear(self):
         """Smaže všechno v posuvné části (před novým vykreslením)."""

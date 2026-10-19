@@ -56,20 +56,20 @@ class PianoView(wx.Control):
     def _on_down(self, event):
         self.mouse_note = self._note_at(event.GetX(), event.GetY())
         if self.mouse_note is not None:
-            self.player.note_on(self.mouse_note)
+            self.player.press(self.mouse_note)
             self.CaptureMouse()
 
     def _on_up(self, event):
         if self.HasCapture():
             self.ReleaseMouse()
         if self.mouse_note is not None:
-            self.player.note_off(self.mouse_note)
+            self.player.release(self.mouse_note)
             self.mouse_note = None
 
     def _on_motion(self, event):
         """Tažení myší po klávesách hraje jednu notu po druhé."""
-        if not (event.Dragging() and self.mouse_note is not None):
-            return
+        if not (event.Dragging() and self.mouse_note is not None) or self.player.hold:
+            return                        # v Hold se tažením nehraje (každý stisk notu přepíná)
         note = self._note_at(event.GetX(), event.GetY())
         if note is not None and note != self.mouse_note:
             self.player.note_off(self.mouse_note)
@@ -82,8 +82,9 @@ class PianoView(wx.Control):
         dc.Clear()
         gc = wx.GraphicsContext.Create(dc)
         gc.SetFont(theme.font(10), theme.TEXT_DIM)
+        hint = "Hold: press a key again to stop it." if self.player.hold else "Or click here."
         gc.DrawText(f"Play with keys A W S E D F T G Y H U J K.   X / C = octave down / up "
-                    f"(A is now {note_name(self._first_note())}).   Or click here.", 0, 0)
+                    f"(A is now {note_name(self._first_note())}).   {hint}", 0, 0)
         for note, x, y, w, h, black in self._keys():
             playing = note in self.player.active
             if black:

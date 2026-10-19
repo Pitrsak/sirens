@@ -12,7 +12,7 @@
 
 import wx
 
-from sirens.song import MAX_TRACKS, PATTERN_NAMES, Pattern
+from sirens.song import MAX_BARS, MAX_TRACKS, MIN_BARS, PATTERN_NAMES, STEPS_PER_BAR, Pattern
 from sirens.ui import theme
 from sirens.ui.pattern_view import PatternView
 from sirens.ui.sidebar import Sidebar, divider
@@ -70,8 +70,14 @@ class SongPage(wx.Panel):
         s.add_choice("Mode", ("Loop", "Song"), 0 if self.player.mode == "Loop" else 1, self._set_mode,
                      help="Loop repeats the pattern each track is editing. Song plays the timeline. "
                           "Space starts and stops.")
-        s.add_slider("Tempo", 40, 200, self.song.tempo, "bpm", step=1, on_change=self.player.set_tempo,
+        s.add_slider("Tempo", 40, 200, self.song.tempo, "bpm", step=1, on_change=self._set_tempo,
                      value=self.song.tempo)
+        s.add_slider("Song length", MIN_BARS, MAX_BARS, 32, "bars", step=4, on_change=self._set_bars,
+                     value=self.song.bars,
+                     help="How many bars the timeline has. If they don't fit, the mouse wheel "
+                          "over the timeline scrolls in time.")
+        self.duration = s.add_note("")
+        self._show_duration()
 
         mute = "Unmute" if self.track.muted else "Mute"
         s.add_group(self.track.name, actions=[(mute, self._toggle_mute), ("Remove", self._remove_track)])
@@ -110,6 +116,22 @@ class SongPage(wx.Panel):
         return owner.NAME if len(same) == 1 else f"{owner.NAME} {same.index(owner) + 1}"
 
     # --- akce (změny, které překreslí panel, až po skončení kliknutí: wx.CallAfter) ---
+
+    def _set_tempo(self, bpm):
+        self.player.set_tempo(bpm)
+        self._show_duration()
+
+    def _set_bars(self, bars):
+        self.song.bars = int(bars)
+        self.player.start_bar = min(self.player.start_bar, self.song.bars - 1)
+        self._show_duration()
+        self.timeline.Refresh()
+
+    def _show_duration(self):
+        """Délka písně v minutách: takt = 16 kroků po 60 / tempo / 4 sekundách."""
+        seconds = round(self.song.bars * STEPS_PER_BAR * 60 / self.song.tempo / 4)
+        self.duration.SetLabel(f"{self.song.bars} bars at {self.song.tempo:.0f} bpm = "
+                               f"{seconds // 60}:{seconds % 60:02d} min")
 
     def _set_mode(self, index):
         was_playing = self.player.playing

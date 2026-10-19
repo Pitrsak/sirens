@@ -21,6 +21,7 @@ from sirens.audio.instrument import Instrument
 STEPS_PER_BAR = 16
 PATTERN_NAMES = "ABCDEFGH"
 MAX_TRACKS = 8
+MIN_BARS, MAX_BARS = 4, 512                 # rozsah délky písně v taktech
 
 
 @dataclass
@@ -96,8 +97,12 @@ class Song:
         self.tracks.remove(track)
 
     def last_bar(self) -> int:
-        """Počet taktů do konce posledního použitého taktu (aspoň 1)."""
-        used = [bar for track in self.tracks for bar in list(track.arrangement)]
+        """Počet taktů do konce posledního použitého taktu (aspoň 1).
+
+        Takty za délkou písně se nepočítají: po zkrácení písně zůstanou uložené,
+        ale nehrají (po prodloužení se vrátí).
+        """
+        used = [bar for track in self.tracks for bar in list(track.arrangement) if bar < self.bars]
         return max(used) + 1 if used else 1
 
     def outputs(self):

@@ -4,6 +4,9 @@
    A S D F G H J K L           bílé klávesy (C, D, E, F, G, A, H, C, D)
     X = o oktávu níž, C = o oktávu výš
 
+Režim Hold: stisk klávesy notu zapne a nechá znít, další stisk téže klávesy
+ji vypne. Tón tak zní dál a mezitím se dá hýbat slidery a poslouchat změnu.
+
 Klávesy se chytají filtrem událostí (wx.EventFilter), který vidí každý stisk
 v celé aplikaci dřív než ovládací prvky, takže hraní funguje, ať je kurzor
 kdekoli. Výjimkou jsou textová políčka (tam se píše).
@@ -34,6 +37,7 @@ class KeyboardPlayer(wx.EventFilter):
         self.held = {}            # držená klávesa -> nota (aby opakovaný stisk nespouštěl notu znovu)
         self.active = set()       # noty, které právě znějí (pro zvýraznění na pianu)
         self.on_space = None      # co dělá mezerník (spuštění / zastavení písně)
+        self.hold = False         # režim Hold: noty znějí, dokud se znovu nestisknou
         wx.EvtHandler.AddFilter(self)
 
     def note_on(self, note: int):
@@ -43,6 +47,30 @@ class KeyboardPlayer(wx.EventFilter):
     def note_off(self, note: int):
         self.engine.send_note(self.channel, note, 0)
         self.active.discard(note)
+
+    def press(self, note: int):
+        """Stisk klávesy (počítače nebo myší na klaviatuře)."""
+        if self.hold and note in self.active:
+            self.note_off(note)           # v Hold druhý stisk notu vypne
+        else:
+            self.note_on(note)
+
+    def release(self, note: int):
+        """Puštění klávesy: v Hold nota zní dál."""
+        if not self.hold:
+            self.note_off(note)
+
+    def set_hold(self, hold: bool):
+        self.release_all()
+        self.hold = hold
+
+    def focus_lost(self):
+        """Okno ztratilo fokus: puštění klávesy by nepřišlo, držené noty radši vypneme.
+        V Hold noty na puštění kláves nezávisí, takže znějí dál."""
+        if self.hold:
+            self.held.clear()
+        else:
+            self.release_all()
 
     def release_all(self):
         """Pustí všechny noty (např. když okno ztratí fokus a puštění klávesy by nepřišlo)."""
@@ -65,7 +93,7 @@ class KeyboardPlayer(wx.EventFilter):
 
         if kind == wx.wxEVT_KEY_UP:
             if key in self.held:
-                self.note_off(self.held.pop(key))
+                self.release(self.held.pop(key))
                 return self.Event_Processed
             return self.Event_Skip
 
@@ -73,10 +101,11 @@ class KeyboardPlayer(wx.EventFilter):
             if key not in self.held:        # držená klávesa posílá opakované stisky, ty ignorujeme
                 note = 12 * (self.octave + 1) + NOTE_KEYS[key]
                 self.held[key] = note
-                self.note_on(note)
+                self.press(note)
             return self.Event_Processed
         if key in ("X", "C"):
-            self.release_all()
+            if not self.hold:             # v Hold necháme znít i noty z předchozí oktávy
+                self.release_all()
             self.octave = max(1, self.octave - 1) if key == "X" else min(7, self.octave + 1)
             return self.Event_Processed
         if key == " " and self.on_space:

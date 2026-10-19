@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 
 from sirens.audio.blocks import CATALOG as BLOCKS
-from sirens.song import Note, Pattern
+from sirens.song import MAX_BARS, MIN_BARS, Note, Pattern
 from sirens.visual.layers import CATALOG as LAYERS
 
 AUTOSAVE = Path.home() / ".sirens" / "autosave.json"
@@ -54,6 +54,7 @@ def capture(song, painter, rig) -> dict:
     """Aktuální stav aplikace jako slovník (připravený pro JSON)."""
     return {
         "tempo": song.tempo,
+        "bars": song.bars,
         "tracks": [_track(track) for track in song.tracks],
         "visual": [{"layer": layer.NAME, "values": dict(layer.settings)} for layer in painter.layers],
         "light": dict(rig.settings),
@@ -109,6 +110,7 @@ def restore(data: dict, song, painter, rig):
     for track in list(song.tracks):
         song.remove_track(track)
     song.tempo = data.get("tempo", song.tempo)
+    song.bars = min(MAX_BARS, max(MIN_BARS, int(data.get("bars", 32))))
     for item in _list(data, "tracks"):
         track = song.add_track()
         if track is not None:

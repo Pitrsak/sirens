@@ -15,9 +15,13 @@ from sirens.visual.painter import Painter
 
 
 class FullscreenWindow(wx.Frame):
-    """Samostatné okno přes celou obrazovku jen s obrazem."""
+    """Samostatné okno přes celou obrazovku jen s obrazem.
 
-    def __init__(self, on_close):
+    Je-li připojená druhá obrazovka (projektor), otevře se na ní,
+    jinak na té, kde je hlavní okno.
+    """
+
+    def __init__(self, main_window, on_close):
         super().__init__(None, title="Sirens visual")
         self.on_close = on_close
         self.bitmap = None
@@ -26,7 +30,18 @@ class FullscreenWindow(wx.Frame):
         self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
         self.Bind(wx.EVT_LEFT_DCLICK, lambda e: self.Close())
         self.Bind(wx.EVT_CLOSE, self._on_close)
+
+        main_display = wx.Display.GetFromWindow(main_window)
+        target = main_display
+        for index in range(wx.Display.GetCount()):
+            if index != main_display:
+                target = index           # první jiná obrazovka než ta s hlavním oknem
+                break
+        self.SetSize(wx.Display(max(target, 0)).GetGeometry())
+        # Na macOS ShowFullScreen skryté okno neukáže: nejdřív Show(), pak přes celou obrazovku.
+        self.Show()
         self.ShowFullScreen(True)
+        self.Raise()
 
     def show(self, image):
         height, width = image.shape[:2]
@@ -85,7 +100,9 @@ class VisualPage(wx.Panel):
 
     def _open_fullscreen(self):
         if self.fullscreen is None:
-            self.fullscreen = FullscreenWindow(self._fullscreen_closed)
+            self.fullscreen = FullscreenWindow(self.GetTopLevelParent(), self._fullscreen_closed)
+        else:
+            self.fullscreen.Raise()
 
     def _fullscreen_closed(self):
         self.fullscreen = None

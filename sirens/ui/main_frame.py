@@ -189,9 +189,8 @@ class MainFrame(wx.Frame):
         self.light_page.tick(analyzer)
 
     def _on_activate(self, event):
-        """Když okno ztratí fokus, puštění klávesy by nepřišlo: noty radši vypneme."""
         if not event.GetActive():
-            self.keys.release_all()
+            self.keys.focus_lost()
         event.Skip()
 
     def _on_close(self, event):

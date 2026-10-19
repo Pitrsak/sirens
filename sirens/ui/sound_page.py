@@ -47,6 +47,9 @@ class SoundPage(wx.Panel):
         self.sidebar.add_slider("Master", 0, 1, 0.5, on_change=engine.set_volume, fixed=True,
                                 help="Overall loudness of all tracks. After it the sound is clipped "
                                      "to -1..1, so nothing can blast the speakers.")
+        self.sidebar.add_choice("Keys", ("Play", "Hold"), 0, lambda i: keys.set_hold(i == 1), fixed=True,
+                                help="Hold: a key keeps sounding until you press it again, so you can "
+                                     "move the sliders and hear the change. Envelope Sustain must be above 0.")
         self.editor = StackEditor(self.sidebar, "Add block", CATALOG, self.refresh)
 
         row = wx.BoxSizer(wx.HORIZONTAL)

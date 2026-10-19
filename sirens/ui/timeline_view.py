@@ -7,6 +7,11 @@ Ovládání:
    (klik na takt, kde už ten pattern je, ho naopak maže)
  - spodní řádek: automatizace vybraného slideru; klik / tažení nastaví hodnotu
    v taktu podle výšky, pravé tlačítko hodnotu smaže
+ - kolečko myši (nebo vodorovný posun na touchpadu): posun v čase, když se
+   celá píseň nevejde; při přehrávání se pohled posouvá s ukazatelem sám
+
+Takt má šířku aspoň MIN_BAR_W, aby se do něj dalo kliknout. Když je taktů víc,
+než se vejde, ukazuje se jen výřez od taktu first_bar.
 """
 
 import math
@@ -20,6 +25,8 @@ NAME_W = 130       # sloupec se jmény stop
 HEADER_H = 22      # řádek s čísly taktů
 ROW_H = 30         # výška řádku stopy
 LANE_H = 80        # výška řádku automatizace
+MIN_BAR_W = 14     # nejužší takt (px)
+WHEEL_BARS = 4     # o kolik taktů posune jeden krok kolečka
 
 
 class TimelineView(wx.Control):
@@ -30,6 +37,8 @@ class TimelineView(wx.Control):
         self.on_select, self.get_lane = on_select, get_lane
         self.selected = None
         self.paint_row = None        # (stopa, pattern nebo None = mazání) při tažení
+        self.first_bar = 0           # první viditelný takt (posun v čase)
+        self.wheel = 0               # nasčítané otočení kolečka (touchpad posílá malé kroky)
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.fit()
         self.Bind(wx.EVT_PAINT, self._on_paint)
@@ -37,6 +46,7 @@ class TimelineView(wx.Control):
         self.Bind(wx.EVT_LEFT_UP, self._on_up)
         self.Bind(wx.EVT_MOTION, self._on_motion)
         self.Bind(wx.EVT_RIGHT_DOWN, self._on_right)
+        self.Bind(wx.EVT_MOUSEWHEEL, self._on_wheel)
         self.Bind(wx.EVT_SIZE, lambda e: self.Refresh())
 
     # --- rozložení ---
@@ -46,13 +56,25 @@ class TimelineView(wx.Control):
         self.SetMinSize((-1, HEADER_H + len(self.song.tracks) * ROW_H + 8 + LANE_H + 8))
 
     def _bar_w(self):
-        return (self.GetClientSize()[0] - NAME_W) / self.song.bars
+        return max(MIN_BAR_W, (self.GetClientSize()[0] - NAME_W) / self.song.bars)
+
+    def _visible_bars(self) -> int:
+        """Kolik celých taktů se vejde na šířku."""
+        return max(1, int((self.GetClientSize()[0] - NAME_W) / self._bar_w()))
+
+    def _scroll_to(self, bar: int):
+        """Posune výřez tak, aby začínal taktem bar (ne však za konec písně)."""
+        self.first_bar = max(0, min(bar, self.song.bars - self._visible_bars()))
+
+    def _x(self, bar: float) -> float:
+        """Vodorovná pozice začátku taktu na obrazovce."""
+        return NAME_W + (bar - self.first_bar) * self._bar_w()
 
     def _lane_top(self):
         return HEADER_H + len(self.song.tracks) * ROW_H + 8
 
     def _bar_at(self, x):
-        bar = int((x - NAME_W) // self._bar_w())
+        bar = self.first_bar + int((x - NAME_W) // self._bar_w())
         return bar if x >= NAME_W and 0 <= bar < self.song.bars else None
 
     def _row_at(self, y):
@@ -137,6 +159,18 @@ class TimelineView(wx.Control):
             self.ReleaseMouse()
         self.paint_row = None
 
+    def _on_wheel(self, event):
+        """Kolečko posouvá v čase: dolů / doprava = dál v písni."""
+        rotation = event.GetWheelRotation()
+        if event.GetWheelAxis() == wx.MOUSE_WHEEL_VERTICAL:
+            rotation = -rotation                     # otočení dolů má zápornou hodnotu
+        self.wheel += rotation
+        steps = int(self.wheel / event.GetWheelDelta())
+        if steps:
+            self.wheel -= steps * event.GetWheelDelta()
+            self._scroll_to(self.first_bar + steps * WHEEL_BARS)
+            self.Refresh()
+
     def _on_right(self, event):
         lane, bar = self.get_lane(), self._bar_at(event.GetX())
         if lane and bar is not None and event.GetY() >= self._lane_top():
@@ -153,37 +187,49 @@ class TimelineView(wx.Control):
         gc = wx.GraphicsContext.Create(dc)
         w, h = self.GetClientSize()
         bar_w = self._bar_w()
+        top = self._lane_top()
+        playing = self.player.playing and self.player.mode == "Song"
+
+        # při přehrávání pohled sleduje ukazatel (když uteče z výřezu, otočí se stránka)
+        visible = self._visible_bars()
+        if playing:
+            play_bar = self.player.position // STEPS_PER_BAR
+            if not self.first_bar <= play_bar < self.first_bar + visible:
+                self._scroll_to(play_bar)
+        self._scroll_to(self.first_bar)              # po zkrácení písně nebo změně šířky okna
+        bars = range(self.first_bar, min(self.song.bars, self.first_bar + visible + 1))
+
+        # zvýraznění vybrané stopy přes celou šířku
+        for row, track in enumerate(self.song.tracks):
+            if track is self.selected:
+                gc.SetBrush(wx.Brush(theme.SLIDER_TRACK))
+                gc.SetPen(wx.TRANSPARENT_PEN)
+                gc.DrawRectangle(0, HEADER_H + row * ROW_H, w, ROW_H)
+
+        # vše, co patří k taktům, se kreslí jen vpravo od sloupce se jmény
+        gc.Clip(NAME_W, 0, w - NAME_W, h)
 
         # čísla taktů a značka začátku přehrávání
         gc.SetFont(theme.font(9), theme.TEXT_DIM)
-        for bar in range(self.song.bars):
-            x = NAME_W + bar * bar_w
+        for bar in bars:
+            x = self._x(bar)
             gc.SetPen(wx.Pen(theme.GRID if bar % 4 else theme.BORDER, 1))
             gc.StrokeLine(x, HEADER_H, x, h)
             if bar % 4 == 0:
                 gc.DrawText(str(bar + 1), x + 3, 4)
-        sx = NAME_W + self.player.start_bar * bar_w
         gc.SetBrush(wx.Brush(theme.TEXT_MUTED))
         gc.SetPen(wx.TRANSPARENT_PEN)
-        gc.DrawRectangle(sx, HEADER_H - 4, bar_w, 3)
+        gc.DrawRectangle(self._x(self.player.start_bar), HEADER_H - 4, bar_w, 3)
 
-        # stopy
+        # patterny ve stopách
         for row, track in enumerate(self.song.tracks):
             y = HEADER_H + row * ROW_H
-            if track is self.selected:
-                gc.SetBrush(wx.Brush(theme.SLIDER_TRACK))
-                gc.SetPen(wx.TRANSPARENT_PEN)
-                gc.DrawRectangle(0, y, w, ROW_H)
-            gc.SetFont(theme.font(11, bold=track is self.selected),
-                       theme.TEXT_DIM if track.muted else theme.TEXT)
-            gc.DrawText(track.name, 10, y + 8)
-            gc.SetFont(theme.font(10, bold=True), theme.ERROR if track.muted else theme.TEXT_DIM)
-            gc.DrawText("M", NAME_W - 20, y + 8)
-            for bar, name in track.arrangement.items():
-                if bar >= self.song.bars:
+            for bar, name in list(track.arrangement.items()):
+                if bar not in bars:
                     continue
-                x = NAME_W + bar * bar_w
-                continues = track.arrangement.get(bar - 1) == name     # pokračování stejného patternu
+                x = self._x(bar)
+                # pokračování stejného patternu (na začátku výřezu ale jméno ukážeme)
+                continues = track.arrangement.get(bar - 1) == name and bar > self.first_bar
                 gc.SetPen(wx.TRANSPARENT_PEN)
                 gc.SetBrush(wx.Brush(theme.TEXT_DIM if track.muted else theme.SLIDER_FILL_HOT))
                 gc.DrawRectangle(x + (0 if continues else 1), y + 4, bar_w - (0 if continues else 1), ROW_H - 8)
@@ -192,18 +238,13 @@ class TimelineView(wx.Control):
                     gc.DrawText(name, x + 4, y + 8)
 
         # automatizace
-        top = self._lane_top()
-        gc.SetPen(wx.Pen(theme.BORDER, 1))
-        gc.StrokeLine(0, top - 4, w, top - 4)
         lane = self.get_lane()
-        gc.SetFont(theme.font(10), theme.TEXT_MUTED)
-        gc.DrawText("Automation" if lane is None else f"Auto: {lane[1].label}", 10, top + 4)
         if lane is not None:
             owner, param = lane
             values = owner.automation.get(param.label, {})
             # hodnota platí od začátku taktu, proto bod na jeho levém okraji
-            points = [(NAME_W + bar * bar_w + 3,
-                       top + LANE_H * (1 - self._to_unit(param, values[bar]))) for bar in sorted(values)]
+            points = [(self._x(bar) + 3, top + LANE_H * (1 - self._to_unit(param, values[bar])))
+                      for bar in sorted(values) if bar < self.song.bars]
             if len(points) > 1:
                 path = gc.CreatePath()
                 path.MoveToPoint(*points[0])
@@ -217,7 +258,30 @@ class TimelineView(wx.Control):
                 gc.DrawEllipse(px - 3, py - 3, 6, 6)
 
         # ukazatel přehrávání v režimu Song
-        if self.player.playing and self.player.mode == "Song":
-            x = NAME_W + self.player.position / STEPS_PER_BAR * bar_w
+        if playing:
             gc.SetPen(wx.Pen(theme.ACCENT, 1))
+            x = self._x(self.player.position / STEPS_PER_BAR)
             gc.StrokeLine(x, 0, x, h)
+        gc.ResetClip()
+
+        # posuvník nahoře: jakou část písně výřez ukazuje
+        if visible < self.song.bars:
+            span = w - NAME_W
+            gc.SetBrush(wx.Brush(theme.TEXT_DIM))
+            gc.SetPen(wx.TRANSPARENT_PEN)
+            gc.DrawRectangle(NAME_W + span * self.first_bar / self.song.bars, 0,
+                             span * visible / self.song.bars, 2)
+
+        # jména stop a M (ztlumení)
+        for row, track in enumerate(self.song.tracks):
+            y = HEADER_H + row * ROW_H
+            gc.SetFont(theme.font(11, bold=track is self.selected),
+                       theme.TEXT_DIM if track.muted else theme.TEXT)
+            gc.DrawText(track.name, 10, y + 8)
+            gc.SetFont(theme.font(10, bold=True), theme.ERROR if track.muted else theme.TEXT_DIM)
+            gc.DrawText("M", NAME_W - 20, y + 8)
+
+        gc.SetPen(wx.Pen(theme.BORDER, 1))
+        gc.StrokeLine(0, top - 4, w, top - 4)
+        gc.SetFont(theme.font(10), theme.TEXT_MUTED)
+        gc.DrawText("Automation" if lane is None else f"Auto: {lane[1].label}", 10, top + 4)

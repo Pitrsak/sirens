@@ -34,10 +34,13 @@ Příště už stačí jen poslední řádek.
 ## Ovládání
 
 - Hraní: klávesy **A W S E D F T G Y H U J K** jako piano, **X / C** oktáva dolů / nahoru.
+  **Keys: Hold** nechá tón znít, dokud se klávesa nestiskne znovu (zatím se dá ladit slidery).
+- **Fullscreen** na záložce Visual: obraz přes celou obrazovku (s projektorem na druhé), zavře se **Esc** nebo dvojklikem.
 - **Mezerník** nebo **Play** spustí a zastaví píseň (Loop = patterny dokola, Song = časová osa).
 - **Add block / Add layer** přidá blok nebo vrstvu, **Up / Down** posune, **Remove** smaže.
 - Pattern: klik do mřížky přidá notu, tažením se prodlouží, klik na notu ji smaže, kolečko posouvá výšky.
 - Časová osa: klik / tažení v řádku stopy vloží její pattern, klik na **M** stopu ztlumí,
   spodní řádek kreslí automatizace vybraného slideru (pravé tlačítko bod smaže).
+- **Song length** nastaví délku písně v taktech (ukáže i délku v minutách); kolečko myši nad časovou osou posouvá v čase.
 - Slidery: táhnout myší, kolečko = jemný posun, dvojklik = výchozí hodnota,
   kliknutí na číslo = zapsat přesnou hodnotu.
