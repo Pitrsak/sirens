@@ -12,6 +12,8 @@ obraz a světlo, které na hudbu reagují.
 - **Light:** RGB světlo řízené zvukem, posílané přes Art-Net.
 
 Práce se ukládá sama (autosave) a otevře se při dalším spuštění; **Save / Open** ukládá do souboru.
+**Undo / Redo** (Cmd+Z / Cmd+Shift+Z, na Windows Ctrl) vrací změny. **Export WAV** (Song) přehraje
+píseň od začátku do konce a nahraje ji do zvukového souboru.
 
 ## Instalace a spuštění
 
@@ -37,8 +39,10 @@ Příště už stačí jen poslední řádek.
   **Keys: Hold** nechá tón znít, dokud se klávesa nestiskne znovu (zatím se dá ladit slidery).
 - **Fullscreen** na záložce Visual: obraz přes celou obrazovku (s projektorem na druhé), zavře se **Esc** nebo dvojklikem.
 - **Mezerník** nebo **Play** spustí a zastaví píseň (Loop = patterny dokola, Song = časová osa).
-- **Add block / Add layer** přidá blok nebo vrstvu, **Up / Down** posune, **Remove** smaže.
+- **Add block / Add layer** přidá blok nebo vrstvu, **Off / On** ho vypne a zapne, **Up / Down** posune, **Remove** smaže.
+- **Duplicate** (Song) zkopíruje stopu i se zvukem a patterny; **Copy sound / Paste sound** (Sound) přenese jen zvuk na jinou stopu.
 - Pattern: klik do mřížky přidá notu, tažením se prodlouží, klik na notu ji smaže, kolečko posouvá výšky.
+  Pruh **Vel** pod mřížkou nastaví sílu (hlasitost) not, **Grid** přepne na trioly.
 - Časová osa: klik / tažení v řádku stopy vloží její pattern, klik na **M** stopu ztlumí,
   spodní řádek kreslí automatizace vybraného slideru (pravé tlačítko bod smaže).
 - **Song length** nastaví délku písně v taktech (ukáže i délku v minutách); kolečko myši nad časovou osou posouvá v čase.

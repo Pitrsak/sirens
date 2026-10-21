@@ -4,6 +4,7 @@
     |  PATTERN  editor not vybrané stopy      | PLAYBACK           |
     |  (piano roll)                           |   Loop / Song      |
     |                                         |   Tempo            |
+    |                                         |   Export WAV       |
     |-----------------------------------------| TRACK              |
     |  TIMELINE  stopy x takty                |   Pattern A..H     |
     |  automatizace                           | AUTOMATION         |
@@ -12,22 +13,31 @@
 
 import wx
 
-from sirens.song import MAX_BARS, MAX_TRACKS, MIN_BARS, PATTERN_NAMES, STEPS_PER_BAR, Pattern
+from sirens import session
+from sirens.audio.export import TAIL
+from sirens.song import BEATS_PER_BAR, GRIDS, MAX_BARS, MAX_TRACKS, MIN_BARS, PATTERN_NAMES, Pattern
 from sirens.ui import theme
 from sirens.ui.pattern_view import PatternView
 from sirens.ui.sidebar import Sidebar, divider
 from sirens.ui.timeline_view import TimelineView
+from sirens.ui.widgets import confirm
 
 BAR_CHOICES = (1, 2, 4)
+GRID_NAMES = ("16ths", "8th triplets", "16th triplets")    # popisky k GRIDS (16, 12, 24)
 
 
 class SongPage(wx.Panel):
-    def __init__(self, parent, engine, song, player, on_track_change, on_tracks_changed):
-        """on_track_change(track): výběr stopy. on_tracks_changed(track): stopa přidána / smazána."""
+    def __init__(self, parent, engine, song, player, on_track_change, on_tracks_changed, on_export):
+        """on_track_change(track): výběr stopy. on_tracks_changed(track): stopa přidána / smazána.
+        on_export(): tlačítko Export WAV (export řídí hlavní okno)."""
         super().__init__(parent)
         self.SetBackgroundColour(theme.BACKGROUND)
         self.engine, self.song, self.player = engine, song, player
         self.on_track_change, self.on_tracks_changed = on_track_change, on_tracks_changed
+        self.on_export = on_export
+        # text pod tlačítkem Export WAV: nápověda, během exportu průběh, pak výsledek
+        self.export_text = ("Export WAV records the song from bar 1 to the end of the last used bar, "
+                            f"plus {TAIL:.0f} s to ring out. It plays in real time.")
         self.track = song.tracks[0]
         self.lane = None                  # (vlastník, Param) automatizace v časové ose
 
@@ -78,15 +88,23 @@ class SongPage(wx.Panel):
                           "over the timeline scrolls in time.")
         self.duration = s.add_note("")
         self._show_duration()
+        s.add_button("Export WAV", self.on_export)
+        self.export_note = s.add_note(self.export_text)
 
         mute = "Unmute" if self.track.muted else "Mute"
-        s.add_group(self.track.name, actions=[(mute, self._toggle_mute), ("Remove", self._remove_track)])
+        s.add_group(self.track.name, actions=[(mute, self._toggle_mute), ("Duplicate", self._duplicate_track),
+                                              ("Remove", self._remove_track)])
         s.add_choice("Pattern", tuple(PATTERN_NAMES), PATTERN_NAMES.index(self.track.current), self._set_pattern,
                      help="Click in the grid to add a note, drag to make it longer, click a note to delete it. "
-                          "Mouse wheel scrolls the pitch.")
+                          "Mouse wheel scrolls the pitch. Drag in the Vel strip below the grid to make notes "
+                          "louder (higher bar) or softer.")
         pattern = self.track.patterns[self.track.current]
         s.add_choice("Length", tuple(f"{b} bar" for b in BAR_CHOICES), BAR_CHOICES.index(pattern.bars),
                      self._set_length)
+        s.add_choice("Grid", GRID_NAMES, GRIDS.index(pattern.grid), self._set_grid,
+                     help="How finely each beat is split. 16ths: 4 equal parts. Triplets split each "
+                          "beat into 3 (or 6) equal parts instead of 4: the rolling, swung feel. "
+                          "Changing it moves existing notes to the nearest new column.")
         s.add_button("Clear pattern", self._clear_pattern)
         if len(self.song.tracks) < MAX_TRACKS:
             s.add_button("Add track", self._add_track)
@@ -128,12 +146,21 @@ class SongPage(wx.Panel):
         self.timeline.Refresh()
 
     def _show_duration(self):
-        """Délka písně v minutách: takt = 16 kroků po 60 / tempo / 4 sekundách."""
-        seconds = round(self.song.bars * STEPS_PER_BAR * 60 / self.song.tempo / 4)
+        """Délka písně v minutách: takt = 4 doby po 60 / tempo sekundách."""
+        seconds = round(self.song.bars * BEATS_PER_BAR * 60 / self.song.tempo)
         self.duration.SetLabel(f"{self.song.bars} bars at {self.song.tempo:.0f} bpm = "
                                f"{seconds // 60}:{seconds % 60:02d} min")
 
+    def show_export(self, text: str):
+        """Nový text pod tlačítkem Export WAV (při exportu se mění jednou za sekundu)."""
+        if text != self.export_text:
+            self.export_text = text
+            self.sidebar.set_note(self.export_note, text)
+
     def _set_mode(self, index):
+        if self.player.once:             # export nahrává v režimu Song, ten se měnit nesmí
+            wx.CallAfter(self.refresh)   # v panelu zase ukázat Song
+            return
         was_playing = self.player.playing
         self.player.stop()
         self.player.mode = ("Loop", "Song")[index]
@@ -150,8 +177,14 @@ class SongPage(wx.Panel):
         pattern.notes = [n for n in pattern.notes if n.step < pattern.steps()]   # noty za koncem pryč
         self.pattern_view.Refresh()
 
+    def _set_grid(self, index):
+        """Jiná mřížka: noty se přepočítají na nejbližší nové kroky (viz Pattern.set_grid)."""
+        self.track.patterns[self.track.current].set_grid(GRIDS[index])
+        self.pattern_view.Refresh()
+
     def _clear_pattern(self):
-        self.track.patterns[self.track.current] = Pattern(self.track.patterns[self.track.current].bars)
+        old = self.track.patterns[self.track.current]
+        self.track.patterns[self.track.current] = Pattern(old.bars, old.grid)
         self.pattern_view.Refresh()
 
     def _toggle_mute(self):
@@ -163,13 +196,19 @@ class SongPage(wx.Panel):
         if track is not None:
             wx.CallAfter(self.on_tracks_changed, track)
 
+    def _duplicate_track(self):
+        """Kopie stopy (zvuk i patterny); na časové ose se umístí ručně."""
+        copy = session.duplicate(self.song, self.track)
+        if copy is None:
+            wx.MessageBox(f"The song can have at most {MAX_TRACKS} tracks.", "Duplicate track")
+            return
+        wx.CallAfter(self.on_tracks_changed, copy)
+
     def _remove_track(self):
         if len(self.song.tracks) == 1:
             wx.MessageBox("The song needs at least one track.", "Remove track")
             return
-        answer = wx.MessageBox(f"Remove {self.track.name} with its instrument and patterns?", "Remove track",
-                               wx.YES_NO | wx.NO_DEFAULT)
-        if answer == wx.YES:
+        if confirm(self, f"Remove {self.track.name} with its instrument and patterns?", "Remove track", "Remove"):
             self.song.remove_track(self.track)
             wx.CallAfter(self.on_tracks_changed, self.song.tracks[0])
 

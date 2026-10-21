@@ -1,8 +1,10 @@
-"""Drobné kreslené prvky UI: nadpis, tlačítko a stavový štítek.
+"""Drobné kreslené prvky UI: nadpis, tlačítka (i ikony Undo / Redo) a stavový štítek.
 
 Nativní wx.Button na macOS barvu ani tvar změnit nedovolí, proto si
 tlačítka kreslíme sami (stejně jako slider).
 """
+
+import math
 
 import wx
 
@@ -110,6 +112,63 @@ class TextButton(wx.Control):
         gc.DrawText(self.label, 2, 2)
 
 
+class ArrowButton(wx.Control):
+    """Ikona Undo (zahnutá šipka doleva) nebo Redo (zrcadlově doprava).
+
+    Bez textu, jako v hlavičce většiny programů. Když není co vracet,
+    je tmavá a nereaguje (vypnutý prvek wx nedostává kliknutí).
+    """
+
+    SIZE = 28
+
+    def __init__(self, parent, redo: bool, on_click, tip: str):
+        super().__init__(parent, style=wx.BORDER_NONE)
+        self.redo, self.on_click = redo, on_click
+        self.hot = False
+        self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
+        self.SetCursor(wx.Cursor(wx.CURSOR_HAND))
+        self.SetMinSize((self.SIZE, self.SIZE))
+        self.SetToolTip(tip)
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_LEFT_UP, lambda e: self.on_click())
+        self.Bind(wx.EVT_ENTER_WINDOW, lambda e: self._set_hot(True))
+        self.Bind(wx.EVT_LEAVE_WINDOW, lambda e: self._set_hot(False))
+
+    def set_enabled(self, enabled: bool):
+        """Zapne / vypne tlačítko; překreslí se jen při změně (volá se 3x za sekundu)."""
+        if enabled != self.IsEnabled():
+            self.Enable(enabled)
+            self.Refresh()
+
+    def _set_hot(self, hot: bool):
+        self.hot = hot
+        self.Refresh()
+
+    def _on_paint(self, event):
+        dc = wx.AutoBufferedPaintDC(self)
+        dc.SetBackground(wx.Brush(self.GetParent().GetBackgroundColour()))
+        dc.Clear()
+        gc = wx.GraphicsContext.Create(dc)
+        if not self.IsEnabled():
+            colour = theme.TEXT_DIM
+        else:
+            colour = theme.TEXT if self.hot else theme.TEXT_MUTED
+        gc.SetPen(wx.Pen(colour, 2, wx.PENSTYLE_SOLID))
+        gc.SetBrush(wx.TRANSPARENT_BRUSH)
+        if self.redo:
+            gc.Translate(self.SIZE, 0)     # Redo = Undo zrcadlově: osa x obrácená
+            gc.Scale(-1, 1)
+        # šipka: hrot vlevo nahoře, čára doprava, oblouk dolů a kousek zpátky doleva
+        path = gc.CreatePath()
+        path.MoveToPoint(8, 11)
+        path.AddLineToPoint(16, 11)
+        path.AddArc(16, 15.5, 4.5, -math.pi / 2, math.pi / 2, True)
+        path.AddLineToPoint(12, 20)
+        path.MoveToPoint(11.5, 7.5)        # hrot
+        path.AddLineToPoint(8, 11)
+        path.AddLineToPoint(11.5, 14.5)
+        gc.StrokePath(path)
+
 class StatusPill(wx.Control):
     """Štítek se stavem dole pod grafy (co je v racku, nápověda)."""
 
@@ -186,3 +245,12 @@ class ChoiceRow(wx.Control):
             gc.SetFont(theme.font(10, bold=selected), theme.TEXT if selected else theme.TEXT_MUTED)
             tw, th = gc.GetTextExtent(self.options[i])
             gc.DrawText(self.options[i], x + (width - tw) / 2, (h - th) / 2)
+
+
+def confirm(parent, message: str, title: str, action: str) -> bool:
+    """Zeptá se před nevratnou změnou. Tlačítka říkají, co udělají (např. Remove / Cancel),
+    protože u Yes / No se na macOS snadno klikne na modré (výchozí) No.
+    """
+    with wx.MessageDialog(parent, message, title, wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING) as dialog:
+        dialog.SetYesNoLabels(action, "Cancel")
+        return dialog.ShowModal() == wx.ID_YES

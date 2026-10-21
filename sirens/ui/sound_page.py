@@ -12,6 +12,7 @@
 
 import wx
 
+from sirens import session
 from sirens.audio.analyzer import SCOPE_VIEW
 from sirens.audio.blocks import CATALOG
 from sirens.ui import theme
@@ -19,7 +20,7 @@ from sirens.ui.piano import PianoView
 from sirens.ui.sidebar import Sidebar, divider
 from sirens.ui.stack_editor import StackEditor
 from sirens.ui.views import ScopeView, SpectrumView
-from sirens.ui.widgets import StatusPill
+from sirens.ui.widgets import StatusPill, confirm
 
 
 class SoundPage(wx.Panel):
@@ -31,6 +32,7 @@ class SoundPage(wx.Panel):
         self.keys = keys
         self.on_track_change = on_track_change
         self.track = song.tracks[0]
+        self.clipboard = None     # zkopírovaný zvuk (slovník ze session.sound_of), zatím nic
 
         self.scope = ScopeView(self)
         self.spectrum = SpectrumView(self)
@@ -67,6 +69,18 @@ class SoundPage(wx.Panel):
         # Seznam stop je v panelu, který se teď překreslí: až po skončení události.
         wx.CallAfter(self.on_track_change, self.song.tracks[index])
 
+    def _copy_sound(self):
+        self.clipboard = session.sound_of(self.track)
+        self.clipboard_name = self.track.name
+        wx.CallAfter(self.refresh)          # ukáže tlačítko Paste sound
+
+    def _paste_sound(self):
+        """Nahradí zvuk vybrané stopy zkopírovaným (noty a časová osa zůstanou)."""
+        if confirm(self, f"Replace the sound of {self.track.name} with the sound copied "
+                         f"from {self.clipboard_name}?", "Paste sound", "Paste"):
+            session.apply_sound(self.track, self.clipboard)
+            wx.CallAfter(self.refresh)
+
     def _rename(self, text: str):
         self.track.name = text or self.track.name
 
@@ -76,11 +90,16 @@ class SoundPage(wx.Panel):
             self.track = self.song.tracks[0]
         sidebar = self.sidebar
         sidebar.clear()
-        sidebar.add_group("Track")
+        actions = [("Copy sound", self._copy_sound)]
+        if self.clipboard is not None:
+            actions.append(("Paste sound", self._paste_sound))
+        sidebar.add_group("Track", actions=actions)
         names = [track.name for track in self.song.tracks]
         sidebar.add_dropdown("Edit", names, self.song.tracks.index(self.track), self._choose_track,
                            help="Each track is its own instrument. Add tracks on the Song tab.")
         sidebar.add_text("Name", self.track.name, self._rename)
+        if self.clipboard is not None:
+            sidebar.add_note(f"Copied sound: {self.clipboard_name}. Select another track and click Paste sound.")
         sidebar.add_group("Envelope")
         sidebar.add_params(self.track.instrument)
         self.editor.show(self.track.instrument.rack,

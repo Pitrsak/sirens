@@ -18,7 +18,7 @@ import math
 
 import wx
 
-from sirens.song import STEPS_PER_BAR
+from sirens.song import TICKS_PER_BAR
 from sirens.ui import theme
 
 NAME_W = 130       # sloupec se jmény stop
@@ -193,7 +193,7 @@ class TimelineView(wx.Control):
         # při přehrávání pohled sleduje ukazatel (když uteče z výřezu, otočí se stránka)
         visible = self._visible_bars()
         if playing:
-            play_bar = self.player.position // STEPS_PER_BAR
+            play_bar = self.player.position // TICKS_PER_BAR
             if not self.first_bar <= play_bar < self.first_bar + visible:
                 self._scroll_to(play_bar)
         self._scroll_to(self.first_bar)              # po zkrácení písně nebo změně šířky okna
@@ -260,7 +260,7 @@ class TimelineView(wx.Control):
         # ukazatel přehrávání v režimu Song
         if playing:
             gc.SetPen(wx.Pen(theme.ACCENT, 1))
-            x = self._x(self.player.position / STEPS_PER_BAR)
+            x = self._x(self.player.position / TICKS_PER_BAR)     # position je v tikách
             gc.StrokeLine(x, 0, x, h)
         gc.ResetClip()
 

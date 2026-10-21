@@ -6,6 +6,9 @@ text, dá se otevřít i v textovém editoru.
 
 Autosave: hlavní okno každé 2 s zapíše aktuální stav do AUTOSAVE (když se
 změnil) a při spuštění ho načte. Po zavření nebo pádu se tak nic neztratí.
+
+Stejný převod na slovník a zpět slouží i ke kopírování: zvuk jedné stopy
+na jinou (sound_of / apply_sound) a zdvojení celé stopy (duplicate).
 """
 
 import json
@@ -29,22 +32,31 @@ def _lanes(automation: dict) -> dict:
             for label, lane in automation.items() if lane}
 
 
-def _track(track) -> dict:
+def sound_of(track) -> dict:
+    """Zvuk stopy: obálka a bloky nástroje se slidery a automatizacemi."""
     instrument = track.instrument
     return {
-        "name": track.name,
-        "muted": track.muted,
-        "current": track.current,
-        "view_low": track.view_low,
         "instrument": dict(instrument.settings),
         "automation": _lanes(instrument.automation),
         "blocks": [{"block": block.NAME,
                     "values": {p.label: block.get(p.label) for p in block.PARAMS},
                     "extra": block.extra(),
+                    "enabled": block.enabled,
                     "automation": _lanes(block.automation)}
                    for block in instrument.rack.blocks],
-        "patterns": {name: {"bars": pattern.bars,
-                            "notes": [[n.step, n.pitch, n.length] for n in pattern.notes]}
+    }
+
+
+def _track(track) -> dict:
+    return {
+        "name": track.name,
+        "muted": track.muted,
+        "current": track.current,
+        "view_low": track.view_low,
+        **sound_of(track),
+        # nota jako [krok, výška, délka, síla]; kroky jsou v mřížce patternu (grid)
+        "patterns": {name: {"bars": pattern.bars, "grid": pattern.grid,
+                            "notes": [[n.step, n.pitch, n.length, n.velocity] for n in pattern.notes]}
                      for name, pattern in track.patterns.items()},
         "arrangement": {str(bar): name for bar, name in track.arrangement.items()},
     }
@@ -56,7 +68,8 @@ def capture(song, painter, rig) -> dict:
         "tempo": song.tempo,
         "bars": song.bars,
         "tracks": [_track(track) for track in song.tracks],
-        "visual": [{"layer": layer.NAME, "values": dict(layer.settings)} for layer in painter.layers],
+        "visual": [{"layer": layer.NAME, "values": dict(layer.settings), "enabled": layer.enabled}
+                   for layer in painter.layers],
         "light": dict(rig.settings),
     }
 
@@ -75,12 +88,10 @@ def _set_lanes(owner, lanes: dict):
                         for label, lane in lanes.items()}
 
 
-def _restore_track(track, data: dict):
-    track.name = data.get("name", track.name)
-    track.muted = data.get("muted", False)
-    track.current = data.get("current", "A")
-    track.view_low = data.get("view_low", track.view_low)
+def apply_sound(track, data: dict):
+    """Nastaví stopě zvuk ze slovníku (viz sound_of); její dosavadní bloky zahodí."""
     instrument = track.instrument
+    instrument.rack.clear()
     _set_values(instrument, data.get("instrument", {}))
     _set_lanes(instrument, data.get("automation", {}))
     for item in data.get("blocks", []):
@@ -90,13 +101,37 @@ def _restore_track(track, data: dict):
         block = instrument.rack.add(block_class)
         _set_values(block, item.get("values", {}))
         block.load_extra(item.get("extra", {}))
+        block.enabled = item.get("enabled", True)
         _set_lanes(block, item.get("automation", {}))
+    instrument.rack.changed()        # znovu propojit: některé bloky mohly být uložené vypnuté
+
+
+def _restore_track(track, data: dict):
+    track.name = data.get("name", track.name)
+    track.muted = data.get("muted", False)
+    track.current = data.get("current", "A")
+    track.view_low = data.get("view_low", track.view_low)
+    apply_sound(track, data)
     for name, item in data.get("patterns", {}).items():
         if name in track.patterns:
-            pattern = Pattern(item.get("bars", 1))
+            # starší soubory: bez "grid" (= šestnáctiny) a noty jen [krok, výška, délka] (síla 100)
+            pattern = Pattern(item.get("bars", 1), item.get("grid", 16))
             pattern.notes = [Note(*note) for note in item.get("notes", [])]
             track.patterns[name] = pattern
     track.arrangement = {int(bar): name for bar, name in data.get("arrangement", {}).items()}
+
+
+def duplicate(song, track):
+    """Nová stopa se stejným zvukem a patterny. Na časové ose je prázdná:
+    kdyby hrála ve stejných taktech, jen by zdvojila hlasitost.
+    Vrací novou stopu, nebo None, když už je stop maximum."""
+    copy = song.add_track()
+    if copy is not None:
+        data = _track(track)
+        data["name"] = f"{track.name} copy"
+        data["arrangement"] = {}
+        _restore_track(copy, data)
+    return copy
 
 
 def _list(data: dict, key: str) -> list:
@@ -124,6 +159,7 @@ def restore(data: dict, song, painter, rig):
         if layer_class is not None:
             layer = painter.add(layer_class)
             _set_values(layer, item.get("values", {}))
+            layer.enabled = item.get("enabled", True)
     _set_values(rig, data.get("light", {}))
 
 

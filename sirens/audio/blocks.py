@@ -33,12 +33,34 @@ from sirens.param import Adjustable, Choice, Param
 
 SMOOTH_TIME = 0.03   # za jak dlouho (s) dojede signál slideru na novou hodnotu
 
+# Tabulky (křivky, zvukové soubory) se za běhu programu nikdy neuvolňují.
+# Objekt, který z tabulky čte (TrigEnv, Lookup), si drží jen ukazatel na její data,
+# ne tabulku samotnou. Při smazání stopy Python uvolní nástroj i bloky naráz
+# v libovolném pořadí; kdyby tabulka zanikla dřív než její čtenář, zvukové vlákno
+# by četlo uvolněnou paměť a program spadl. Tabulek je málo, paměti to nevadí.
+TABLES = []
+SOUNDS = {}          # cesta k souboru -> načtená tabulka (stejný soubor jen jednou)
+
+
+def keep(table):
+    """Uloží tabulku natrvalo (viz výše) a vrátí ji."""
+    TABLES.append(table)
+    return table
+
+
+def load_sound(path: str):
+    """Zvukový soubor jako tabulka; každý soubor se načte jen jednou."""
+    if path not in SOUNDS:
+        SOUNDS[path] = SndTable(path, chnl=0)
+    return SOUNDS[path]
+
 
 class Block(Adjustable):
     """Společný základ všech bloků: slidery jako pyo signály."""
 
     NAME = ""
     IS_SOURCE = True
+    enabled = True      # vypnutý blok rack přeskočí (viz rack.py)
 
     def __init__(self, instrument):
         self.instrument = instrument
@@ -74,8 +96,24 @@ class Block(Adjustable):
 PITCH_PARAMS = [
     Param("Octave", -3, 3, 0, step=1, help="Shift the played notes by whole octaves."),
     Param("Detune", -100, 100, 0, "ct", help="Fine tuning in cents (100 cents = one semitone)."),
+    Param("Pitch drop", 0, 48, 0, "st", step=1, help="Each note starts this many semitones higher and "
+                                                     "quickly falls to its pitch. Kick drums, toms, lasers."),
+    Param("Drop time", 0.01, 1, 0.06, "s", log=True, help="How fast the pitch falls back to the note."),
 ]
 LEVEL = Param("Level", 0, 1, 0.5, help="Loudness of this source.")
+
+
+DROP_POINTS = 512
+
+
+def drop_curve() -> list:
+    """Tvar poklesu výšky: z 1 rychle k 0 (exponenciálně, jako tlumený kmit blány bubnu).
+
+    e^(-6x) klesne na konci skoro k nule; posunutím a vydělením končí přesně v 0,
+    takže po doběhnutí nota nezůstane ani trochu rozladěná.
+    """
+    end = math.exp(-6)
+    return [(math.exp(-6 * i / (DROP_POINTS - 1)) - end) / (1 - end) for i in range(DROP_POINTS)]
 
 
 class SourceBlock(Block):
@@ -84,6 +122,18 @@ class SourceBlock(Block):
     def __init__(self, instrument):
         super().__init__(instrument)
         self.ratio = SigTo(self._ratio(), time=SMOOTH_TIME, init=self._ratio())
+        if "Pitch drop" in self.values:
+            # Pokles výšky: při každém stisku (trigger) proběhne křivka 1 -> 0 za Drop time.
+            # Výška = nota * (1 + amount * křivka): na začátku nota * 2^(drop/12), pak nota.
+            self.curve = keep(DataTable(size=DROP_POINTS, init=drop_curve()))
+            self.drop = TrigEnv(instrument.trigger, self.curve, dur=self.values["Drop time"],
+                                interp=1)    # bez interpolace: ta by na konci křivky skočila zpět k 1
+            self.amount = SigTo(self._amount(), time=SMOOTH_TIME, init=self._amount())
+            self.bend = Sig(self.drop, mul=self.amount, add=1)
+
+    def _amount(self) -> float:
+        """O kolik víc (krát) než nota začíná tón: 12 půltónů = 2x výš, tedy amount 1."""
+        return 2 ** (round(self.get("Pitch drop")) / 12) - 1
 
     def _ratio(self) -> float:
         """Kolikrát vyšší je tón zdroje než hraná nota (podle Octave a Detune)."""
@@ -95,10 +145,15 @@ class SourceBlock(Block):
         super().set(label, value)
         if label in ("Octave", "Detune"):
             self.ratio.value = self._ratio()
+        if label == "Pitch drop":
+            self.amount.value = self._amount()
 
     def freq(self):
-        """Frekvence pro každý hlas: výška hrané noty krát posun zdroje."""
-        return Sig(self.instrument.pitch, mul=self.ratio)
+        """Frekvence pro každý hlas: výška hrané noty krát posun zdroje (krát pokles výšky)."""
+        shifted = Sig(self.instrument.pitch, mul=self.ratio)
+        if "Pitch drop" not in self.values:
+            return shifted
+        return Sig(shifted, mul=self.bend)
 
     def amp(self):
         """Hlasitost pro každý hlas: obálka noty krát Level."""
@@ -229,7 +284,7 @@ class SamplerBlock(SourceBlock):
     def __init__(self, instrument):
         super().__init__(instrument)
         self.path = ""
-        self.table = NewTable(0.1)                  # zatím prázdná = ticho
+        self.table = keep(NewTable(0.1))            # zatím prázdná = ticho
         self.shift = SigTo(1.0, time=SMOOTH_TIME)
         self._build()
 
@@ -254,7 +309,7 @@ class SamplerBlock(SourceBlock):
         Pro nový soubor postavíme nový přehrávač a rack znovu propojíme. Výměna tabulky
         za běhu (setTable) by mohla uvolnit starý zvuk, zatímco ho zvukové vlákno čte.
         """
-        self.table = SndTable(path, chnl=0)
+        self.table = load_sound(path)
         self.path = path
         self._build()
         self.instrument.rack.changed()
@@ -341,7 +396,7 @@ class ShaperBlock(EffectBlock):
 
     def __init__(self, instrument):
         super().__init__(instrument)
-        self.table = DataTable(self.TABLE_SIZE)
+        self.table = keep(DataTable(self.TABLE_SIZE))
         self._draw_curve()
 
     def set(self, label, value):

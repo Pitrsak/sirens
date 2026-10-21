@@ -1,6 +1,6 @@
 """Seřazený seznam prvků, které uživatel skládá pod sebe: bloky zvuku, vrstvy obrazu.
 
-Umí přidat, smazat, vyprázdnit a posunout prvek. Po každé změně zavolá
+Umí přidat, smazat, vyprázdnit, posunout a vypnout / zapnout prvek. Po každé změně zavolá
 changed(), kde si potomek zařídí, co je potřeba (rack znovu propojí zvuk).
 Prvky se tvoří přes create(), protože blok potřebuje svůj nástroj a vrstva ne.
 """
@@ -29,6 +29,11 @@ class Stack:
 
     def clear(self):
         self.items = []
+        self.changed()
+
+    def toggle(self, item):
+        """Vypne nebo zapne prvek: vypnutý zůstane v seznamu i s nastavením, jen se přeskakuje."""
+        item.enabled = not item.enabled
         self.changed()
 
     def move(self, item, step: int):

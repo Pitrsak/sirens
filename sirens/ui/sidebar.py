@@ -158,6 +158,13 @@ class Sidebar(wx.Panel):
         self.scroll_sizer.Add(note, 0, wx.LEFT | wx.RIGHT | wx.TOP, PADDING)
         return note
 
+    def set_note(self, note: wx.StaticText, text: str):
+        """Změní text poznámky z add_note (znovu ho zalomí a přepočítá rozložení)."""
+        note.SetLabel(text)
+        note.Wrap(WIDTH - 2 * PADDING)
+        self.scroll.Layout()
+        self.scroll.FitInside()
+
     def clear(self):
         """Smaže všechno v posuvné části (před novým vykreslením)."""
         self.scroll_sizer.Clear(delete_windows=True)

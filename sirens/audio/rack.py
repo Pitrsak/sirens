@@ -20,16 +20,21 @@ class Rack(Stack):
         return block_class(self.instrument)
 
     def changed(self):
-        """Propojí bloky shora dolů a výsledek předá nástroji (nic = ticho)."""
+        """Propojí zapnuté bloky shora dolů a výsledek předá nástroji (nic = ticho)."""
         flow = None
         for block in self.blocks:
-            flow = block.connect(flow)
+            if block.enabled:
+                flow = block.connect(flow)
+            elif not block.IS_SOURCE:
+                block.output = None     # vypnutý efekt: jeho starý řetězec zahodíme, ať se nepočítá
         self.instrument.play(flow)
 
     def describe(self) -> str:
         """Cesta zvuku jako text, např. "Oscillator + Noise -> Filter"."""
         text = ""
         for block in self.blocks:
+            if not block.enabled:
+                continue
             if not text:
                 text = block.NAME
             else:

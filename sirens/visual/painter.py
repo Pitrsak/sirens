@@ -28,10 +28,11 @@ class Painter(Stack):
     def render(self, analyzer, dt: float) -> np.ndarray:
         """Spočítá další snímek a vrátí ho jako 8bitové RGB pole."""
         self.features.update(analyzer, dt)
-        keep = any(isinstance(layer, FeedbackLayer) for layer in self.layers)
+        layers = [layer for layer in self.layers if layer.enabled]
+        keep = any(isinstance(layer, FeedbackLayer) for layer in layers)
         canvas = self.canvas if keep else np.zeros_like(self.canvas)
         halos = []
-        for layer in self.layers:
+        for layer in layers:
             if layer.POST:
                 halos.append(layer.halo(canvas, self.features))
             else:

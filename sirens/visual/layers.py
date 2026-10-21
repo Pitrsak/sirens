@@ -49,6 +49,7 @@ class Layer(Adjustable):
     NAME = ""
     IS_SOURCE = True
     POST = False        # True: jen navrch výsledku, ne do paměti pro Feedback (viz Glow)
+    enabled = True      # vypnutou vrstvu painter přeskočí
 
     def drive(self, f) -> float:
         """Síla reakce na zvuk 0..2 podle "React to" a "Reaction" (None = 0)."""

@@ -1,7 +1,8 @@
 """Úprava seznamu bloků nebo vrstev v pravém panelu (stejně pro zvuk i obraz).
 
-Pro každý prvek skupina: nadpis s tlačítky Up / Down / Remove (a případně
-Load u Sampleru), pod ním jeho slidery. Na konci tlačítko pro přidání
+Pro každý prvek skupina: nadpis s tlačítky Off / Up / Down / Remove (a případně
+Load u Sampleru), pod ním jeho slidery. Off prvek vypne (zůstane i s nastavením),
+On ho zase zapne. Na konci tlačítko pro přidání
 s menu všech druhů (nahoře zdroje / tvary, pod čarou efekty).
 """
 
@@ -23,12 +24,13 @@ class StackEditor:
         self.stack = stack
         for item in stack.items:
             # i=item: lambda si musí zapamatovat tenhle prvek, ne poslední z cyklu
-            actions = [("Up", lambda i=item: self._later(stack.move, i, -1)),
+            actions = [("Off" if item.enabled else "On", lambda i=item: self._later(stack.toggle, i)),
+                       ("Up", lambda i=item: self._later(stack.move, i, -1)),
                        ("Down", lambda i=item: self._later(stack.move, i, 1)),
                        ("Remove", lambda i=item: self._later(stack.remove, i))]
             if hasattr(item, "load"):
                 actions.insert(0, ("Load", lambda i=item: self._load_file(i)))
-            self.sidebar.add_group(item.NAME, actions=actions)
+            self.sidebar.add_group(item.NAME if item.enabled else f"{item.NAME} (off)", actions=actions)
             note = item.note() if hasattr(item, "note") else ""
             if note:
                 self.sidebar.add_note(note)
