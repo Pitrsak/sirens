@@ -257,7 +257,7 @@ return f"{NOTE_NAMES[note % 12]}{note // 12 - 1}"
 - `f"..."` je **f-string**: text, do kterého se ve složených závorkách dosadí hodnoty.
 
 Černé klávesy jsou v každé oktávě na půltónech 1, 3, 6, 8, 10 (C#, D#, F#, G#, A#).
-Proto `pitch % 12 in BLACK` (`sirens/ui/pattern_view.py:33`) pozná černou klávesu
+Proto `pitch % 12 in BLACK` (`sirens/ui/pattern_view.py:32`) pozná černou klávesu
 u libovolné noty.
 
 ---
@@ -282,7 +282,7 @@ Každý je vysvětlený tady jednou, v textu dál už jen odkaz.
   předat "co má udělat".
 - **Callback**: funkce předaná jako parametr, kterou někdo jiný zavolá později.
   `SoundPage(..., on_track_change)` dostane funkci a zavolá ji, když uživatel vybere stopu.
-- **Uzávěr (closure)**: `lambda: self.lane` (`sirens/ui/song_page.py:50`) si pamatuje
+- **Uzávěr (closure)**: `lambda: self.lane` (`sirens/ui/song_page.py:42`) si pamatuje
   `self`, ne hodnotu `self.lane`. Pokaždé, když ji timeline zavolá, vrátí **aktuální**
   `self.lane`. Timeline tak vždycky ví, kterou automatizaci kreslit, a nikdo jí to nemusí
   posílat při každé změně.
@@ -764,17 +764,17 @@ analyzér má nový úsek zvuku (`fresh`). `duration_ms = SCOPE_VIEW / sample_ra
 
 ### `sirens/ui/song_page.py`: záložka Song
 
-**`SongPage(wx.Panel)`** (`song_page.py:32`) poskládá `PatternView` a `TimelineView`
+**`SongPage(wx.Panel)`** (`song_page.py:29`) poskládá `PatternView` a `TimelineView`
 a vpravo panel. Sama na myš nereaguje, to dělají ty dva prvky.
 
 **`__init__`**: `PatternView(self, player, self._preview)` - piano roll dostane funkci
 na přehrání noty. `TimelineView(self, song, player, self._select_from_timeline, lambda: self.lane)`
 - timeline dostane funkci na výběr stopy a uzávěr, který vrací aktuální automatizaci.
 
-**`select_track`** (`song_page.py:65`) nastaví stopu do obou prvků. Při změně stopy
+**`select_track`** (`song_page.py:57`) nastaví stopu do obou prvků. Při změně stopy
 zruší `lane`, protože automatizace patří ke konkrétní stopě.
 
-**`refresh`** (`song_page.py:80`) postaví panel:
+**`refresh`** (`song_page.py:72`) postaví panel:
 
 - Playback: Mode (Loop / Song), Tempo (40..200 bpm), Song length (4..512 taktů po 4),
   délka v minutách.
@@ -790,7 +790,7 @@ zruší `lane`, protože automatizace patří ke konkrétní stopě.
   Dva `for` v jednom výrazu: pro každého "vlastníka" (obálka, každý blok) každý jeho
   parametr. V dropdownu je navíc "None" na pozici 0, proto se všude přičítá / odečítá 1.
 
-**`_show_duration`** (`song_page.py:165`):
+**`_show_duration`** (`song_page.py:151`):
 
 ```python
 seconds = round(self.song.bars * BEATS_PER_BAR * 60 / self.song.tempo)
@@ -804,7 +804,7 @@ doby. Příklad: 32 taktů při 110 bpm = 32 * 4 * 60 / 110 = 69,8 -> 70 s -> `1
 
 **`_set_length`**: změní počet taktů patternu a vyhodí noty, které začínají za novým koncem.
 
-**`_preview`** (`song_page.py:245`):
+**`_preview`** (`song_page.py:217`):
 
 ```python
 self.engine.send_note(channel, pitch, 100)

@@ -539,7 +539,7 @@ Tohle je místo, kde kód **sám** počítá se signálem, a ne jen volá hotovo
 
 **Obrazový signál:**
 
-1. **Aditivní míchání vrstev** (`layers.py:51`, `blend`) a ořez + převod na 8 bitů (`painter.py:45–47`).
+1. **Aditivní míchání vrstev** (`layers.py:45`, `blend`) a ořez + převod na 8 bitů (`painter.py:45–47`).
 2. **Výpočet geometrie tvarů** z dat o zvuku: Ring (polární souřadnice ze spektra) a Particles (pozice, rychlost a život částic). OpenCV tu jen kreslí čáry a kruhy podle našich bodů.
 3. **Částicová simulace** (`layers.py:120–167`): vznik, pohyb, stárnutí a zánik částic ve vektorech numpy.
 4. **Feedback** (`layers.py:169–193`): paměť minulého snímku + ztmavení násobením; matici a transformaci dělá OpenCV, ale samotný princip zpětné vazby (painter si drží `self.canvas`) je náš.

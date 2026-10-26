@@ -305,7 +305,7 @@ return 60 / self.song.tempo * BEATS_PER_BAR / TICKS_PER_BAR
 
 60 / tempo = délka doby v sekundách. Krát 4 = délka taktu. Děleno 48 = délka tiku. Při tempu 120: 0,5 s × 4 / 48 ≈ 0,042 s, tedy asi 42 ms. Tempo se čte při každém tiku znovu, takže `set_tempo` jen přepíše `song.tempo` a hodiny se přizpůsobí samy.
 
-#### `play` a `stop` (`sirens/audio/player.py:47`, `:60`)
+#### `play` a `stop` (`sirens/audio/player.py:47`, `:58`)
 
 ```python
 self.thread = threading.Thread(target=self._run, daemon=True)
@@ -314,13 +314,13 @@ self.thread.start()
 
 `threading.Thread(target=funkce)` připraví vlákno, které spustí danou funkci; `start()` ho rozjede. `daemon=True` znamená, že takové vlákno nebrání ukončení programu (když se zavře okno, nečeká se na něj).
 
-`play()` začne od 0 (Loop) nebo od `start_bar * 48` (Song). Pokud předchozí vlákno ještě dospává poslední tik, `join()` na něj nejdřív počká.
+`play()` začne od 0 (Loop) nebo od `start_bar * 48` (Song). Když už hraje, nedělá nic (`if self.playing: return`), takže nikdy neběží dvoje hodiny naráz.
 
 `stop()` nastaví `playing = False` (smyčka v `_run` to uvidí a skončí), pak `thread.join()`. **`join()`** = "počkej, až to vlákno doběhne". Teprve potom vypne všechny noty v `pending` (pošle velocity 0), jinak by zůstaly viset a zněly donekonečna.
 
 `toggle()` je zkratka: když hraje, zastav, jinak spusť.
 
-#### Hodiny: `_run` (`sirens/audio/player.py:79`)
+#### Hodiny: `_run` (`sirens/audio/player.py:77`)
 
 ```python
 next_time = time.perf_counter()
@@ -340,7 +340,7 @@ while self.playing:
 - `if delay > 0`: když jsme pozadu, nespí se vůbec a tik se dotáhne hned.
 - **`try / except`**: když v `_on_tick` nastane chyba, program nespadne; `except` ji chytí, `traceback.print_exc()` ji vypíše do terminálu a hodiny jedou dál.
 
-#### Jeden tik: `_on_tick` (`sirens/audio/player.py:96`)
+#### Jeden tik: `_on_tick` (`sirens/audio/player.py:94`)
 
 Má tři kroky.
 
@@ -369,7 +369,7 @@ bar, tick_in_bar = divmod(self.tick, TICKS_PER_BAR)
 
 Nakonec `position = tick` (pro UI) a `tick += 1`.
 
-#### `_play_notes` (`sirens/audio/player.py:137`)
+#### `_play_notes` (`sirens/audio/player.py:135`)
 
 ```python
 per_step = pattern.ticks_per_step()
@@ -388,7 +388,7 @@ for note in list(pattern.notes):
 - `send_note` pošle notu nástroji jako **MIDI zprávu** (stejnou, jako by přišla z MIDI klávesnice). Nástroj v pyo (`Notein`) ji přijme na svém kanálu.
 - Do `pending` se zapíše, za kolik tiků notu vypnout: délka v krocích × tiků na krok.
 
-#### `_automate` (`sirens/audio/player.py:153`)
+#### `_automate` (`sirens/audio/player.py:151`)
 
 Projde nástroj a bloky stopy, pro každou lane spočítá `lane_value` a pokud se hodnota opravdu změnila (o víc než `1e-6`, tj. 0,000001, malá rezerva kvůli nepřesnosti desetinných čísel), zavolá `owner.set(...)`. Tím se změní nastavení i zvuk. `list(owner.automation.items())` je zase kopie, protože uživatel může zrovna kreslit body.
 

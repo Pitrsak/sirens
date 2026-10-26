@@ -49,8 +49,6 @@ class Player:
         Když je tik za koncem (píseň se mezitím zkrátila), _on_tick ho vrátí na začátek."""
         if self.playing:
             return
-        if self.thread is not None:
-            self.thread.join()         # hodiny, co skončily samy, můžou ještě dospávat tik
         self.tick = self.start_bar * TICKS_PER_BAR if self.mode == "Song" else 0
         self.playing = True
         # daemon=True: vlákno neblokuje konec programu, když se zavře okno

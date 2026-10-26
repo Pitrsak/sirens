@@ -94,9 +94,9 @@ dělá jen málo práce a kreslí se jen to, co je vidět.
 ### Frame a Panel
 
 - `wx.Frame` = okno s titulkem a křížkem. `MainFrame` z něj dědí
-  (`class MainFrame(wx.Frame)`, `sirens/ui/main_frame.py:53`).
+  (`class MainFrame(wx.Frame)`, `sirens/ui/main_frame.py:43`).
 - `wx.Panel` = obdélník uvnitř okna, do kterého se dávají další prvky. Do Frame se
-  nekreslí přímo, dá se do něj jeden panel (`root = wx.Panel(self)`, `main_frame.py:73`)
+  nekreslí přímo, dá se do něj jeden panel (`root = wx.Panel(self)`, `main_frame.py:61`)
   a všechno ostatní je jeho dítě.
 
 Každý prvek má **rodiče** (parent): první argument konstruktoru. `SoundPage(root, ...)`
@@ -119,7 +119,7 @@ Prvek se přidá metodou `Add(prvek, proportion, flagy, okraj)`:
   `wx.ALIGN_CENTER_VERTICAL` = zarovnat na střed výšky.
 - **okraj** = kolik pixelů na těch stranách.
 
-Příklad z `MainFrame.__init__` (`main_frame.py:88`):
+Příklad z `MainFrame.__init__` (`main_frame.py:87`):
 
 ```python
 layout = wx.BoxSizer(wx.VERTICAL)
@@ -136,7 +136,7 @@ výšky dostane ta jedna viditelná.
 Další užitečné věci ze sizerů v našem kódu:
 - `AddSpacer(12)` = prázdné místo 12 px (mezery mezi slidery v `sidebar.py`).
 - `AddStretchSpacer()` = "pružina", která zabere všechno volné místo. V hlavičce
-  (`main_frame.py:131`) odtlačí Open / Save / Play doprava.
+  (`main_frame.py:110`) odtlačí Open / Save / Play doprava.
 - `SetMinSize((-1, 56))` = minimální velikost, `-1` znamená "v tomhle rozměru je mi to jedno".
 - `Layout()` = "přepočítej rozložení teď". Volá se, když se něco změní za běhu
   (přepnutí záložky, Play se změní na Stop a má jinou šířku).
@@ -160,7 +160,7 @@ Když funkci argument nestojí za nic, používáme lambdu, která ho zahodí:
 
 **`event.Skip()`**: znamená "já jsem s tím hotový, ale ať to zpracuje i někdo další
 (nebo wx sám)". Je potřeba hlavně u událostí, kde wx má i vlastní chování. Příklad
-`_on_close` (`main_frame.py:402`): bez `event.Skip()` na konci by se okno nezavřelo,
+`_on_close` (`main_frame.py:225`): bez `event.Skip()` na konci by se okno nezavřelo,
 protože bychom zavření "spolkli". U `_on_editor_key` ve slideru se `Skip()` volá pro
 všechny klávesy kromě Esc, aby normální písmena došla do textového políčka.
 
@@ -274,7 +274,7 @@ s Cmd / Ctrl filtr pouští dál, aby šlo psát čísla a normálně ovládat s
 
 Vlastní menu aplikace nemá, takže žádné klávesové zkratky přes `EVT_MENU` neřešíme.
 
-`EVT_ACTIVATE` (`main_frame.py:218`): když přepneš do jiné aplikace, okno ztratí fokus
+`EVT_ACTIVATE` (`main_frame.py:90`): když přepneš do jiné aplikace, okno ztratí fokus
 a puštění klávesy už k nám nedojde. Kdybychom nic neudělali, nota by zněla donekonečna.
 Proto `_on_activate` zavolá `self.keys.focus_lost()`.
 
@@ -562,7 +562,7 @@ if self.on_change:
 
 #### Psaní přesné hodnoty
 
-`_start_edit` (`slider.py:157`) položí přes rámeček skutečné textové políčko
+`_start_edit` (`slider.py:126`) položí přes rámeček skutečné textové políčko
 `wx.TextCtrl` (dítě slideru), předvyplní ho aktuálním číslem, označí text a dá mu fokus,
 takže se dá hned psát.
 
@@ -840,7 +840,7 @@ Kdo volá do souborů z této kapitoly:
 
 | Kdo | Co používá |
 |---|---|
-| `sirens/__main__.py:12` | vytvoří `MainFrame(engine)` |
+| `sirens/__main__.py:15` | vytvoří `MainFrame(engine)` |
 | `sirens/ui/sound_page.py` | `Sidebar` (s pevnou částí), `divider`, `StackEditor` ("Add block"), `ScopeView`, `SpectrumView`, `StatusPill`, `confirm` (Paste sound), `theme` |
 | `sirens/ui/song_page.py` | `Sidebar`, `divider`, `confirm` (Remove track), `theme`; `add_slider` (Tempo, Song length), `add_choice`, `add_dropdown`, `add_note` (délka písně) |
 | `sirens/ui/visual_page.py` | `Sidebar` (pevná část s Fullscreen), `divider`, `StackEditor` ("Add layer"), `VisualView`, `theme` |
