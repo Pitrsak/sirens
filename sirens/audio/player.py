@@ -1,8 +1,8 @@
 """Přehrávání písně: hodiny tikaj TICKS_PER_BAR krát za takt a na každým tiku
 pošlou nástrojům noty, který na něj připadaj.
 
-Tiků je 48 na takt, aby se do taktu vešly kroky všech mřížek (viz song.py):
-pattern s mřížkou 16 má krok každý 3 tiky, s mřížkou 12 každý 4 tiky.
+Tiků je 48 na takt, takže jeden krok patternu (šestnáctina) = 3 tiky
+a jedna doba = 12 tiků. (Dřív tu byly i trioly s jiným dělením, ty už nejsou.)
 
 Hodiny běžej ve vlastním vlákně (threading): spí do času dalšího tiku a pak
 zavolaj _on_tick(). Proč ne časovač okna? ten by kolísal podle toho, jak dlouho
@@ -13,9 +13,6 @@ Dva režimy:
     Loop  každá stopa dokola hraje svůj právě editovanej pattern (na zkoušení)
     Song  hraje se aranžmá z časový osy od start_bar do konce, pak znova,
           a navíc se podle časový osy mění automatizovaný slidery
-
-Příznak once (pro export do WAV, viz export.py): v režimu Song se na konci
-písně neopakuje, hodiny se samy zastavěj.
 """
 
 import threading
@@ -36,7 +33,6 @@ class Player:
         self.position = 0             # tik, kterej právě hraje (pro ukazatel v UI)
         self.pending = []             # [zbývá_tiků, kanál, nota]: noty, co čekaj na vypnutí
         self.thread = None
-        self.once = False             # Song jen jednou: na konci se zastavit (export)
 
     def _tick_time(self) -> float:
         """Délka jednoho tiku v sekundách: doba = 60 / tempo, takt = 4 doby = 48 tiků.
@@ -48,18 +44,14 @@ class Player:
     def set_tempo(self, bpm: float):
         self.song.tempo = bpm          # hodiny si ho přečtou u dalšího tiku, nic víc není potřeba
 
-    def play(self, from_tick: int | None = None):
-        """Spustí hodiny. from_tick: kde začít (např. po Undo pokračovat, kde to hrálo);
-        bez něj od začátku smyčky / od start_bar. Když je tik za koncem
-        (píseň se mezitím zkrátila), _on_tick ho vrátí na začátek."""
+    def play(self):
+        """Spustí hodiny od začátku smyčky / od start_bar.
+        Když je tik za koncem (píseň se mezitím zkrátila), _on_tick ho vrátí na začátek."""
         if self.playing:
             return
         if self.thread is not None:
-            self.thread.join()         # hodiny, co skončily samy (once), můžou ještě dospávat tik
-        if from_tick is not None:
-            self.tick = from_tick
-        else:
-            self.tick = self.start_bar * TICKS_PER_BAR if self.mode == "Song" else 0
+            self.thread.join()         # hodiny, co skončily samy, můžou ještě dospávat tik
+        self.tick = self.start_bar * TICKS_PER_BAR if self.mode == "Song" else 0
         self.playing = True
         # daemon=True: vlákno neblokuje konec programu, když se zavře okno
         self.thread = threading.Thread(target=self._run, daemon=True)
@@ -117,9 +109,6 @@ class Player:
         if self.mode == "Loop":
             self.tick %= self.loop_ticks()         # zbytek po dělení = dokola v rámci smyčky
         elif self.tick >= self.song.last_bar() * TICKS_PER_BAR:
-            if self.once:
-                self._finish()             # export: píseň dohrála, hodiny končej
-                return
             # zpátky na start_bar, ale jen když ještě leží v písni, jinak od 0
             self.tick = self.start_bar * TICKS_PER_BAR if self.start_bar < self.song.last_bar() else 0
         # divmod = celočíselný dělení a zbytek naráz: tik 100 -> takt 2, tik 4 v taktu
@@ -144,19 +133,6 @@ class Player:
 
         self.position = self.tick
         self.tick += 1
-
-    def _finish(self):
-        """Konec písně v režimu once (volá se ve vlákně hodin).
-
-        Pozor, nesmí volat stop(): ten čeká na doběhnutí vlákna, tedy sám na sebe,
-        a to nejde (join na vlastní vlákno skončí chybou). Takže jen vypne čekající noty a shodí playing,
-        smyčka v _run pak skončí sama. UI si toho všimne ve svým časovači
-        (player.playing je False).
-        """
-        for _, channel, pitch in self.pending:
-            self.engine.send_note(channel, pitch, 0)
-        self.pending = []
-        self.playing = False
 
     def _play_notes(self, track, pattern, tick_in_pattern: int):
         """Zahraje noty patternu, který začínaj na daným tiku (tiky od začátku patternu).

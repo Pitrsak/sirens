@@ -64,14 +64,14 @@ Krok za krokem:
 
 Co vidíš: nahoře **piano roll** (mřížka: svisle výšky tónů, vodorovně čas), dole
 **časová osa** (řádek pro každou stopu, sloupec pro každý takt, úplně dole řádek
-automatizace). Vpravo: Loop / Song, Tempo, Song length, Export WAV, nastavení stopy
-a patternu (Pattern A..H, Length, Grid), Automation.
+automatizace). Vpravo: Loop / Song, Tempo, Song length, nastavení stopy
+a patternu (Pattern A..H, Length), Automation.
 
 Slovníček na rozjezd (podrobně v [20-pisen-a-data.md](20-pisen-a-data.md)):
 
 - **takt** = kus času, 4 doby. Při tempu 120 bpm (doby za minutu) trvá doba 0,5 s, takt 2 s.
-- **krok** = nejmenší políčko v mřížce. Kolik kroků má takt, říká **mřížka** (`grid`):
-  16 (šestnáctiny, doba rozdělená na 4), 12 nebo 24 (trioly, doba na 3 nebo 6).
+- **krok** = nejmenší políčko v mřížce. Mřížka je vždycky po šestnáctinách: **16 kroků
+  na takt**, takže jedna doba jsou 4 kroky. Trioly ani jiné dělení aplikace neumí.
 - **pattern** = krátký kousek s notami (1, 2 nebo 4 takty). Každá stopa jich má osm, A..H.
 - **arrangement** = která stopa hraje který pattern v kterém taktu písně.
 
@@ -101,7 +101,7 @@ Krok za krokem:
 
 ### Visual: obraz z vrstev
 
-Co vidíš: vlevo obraz, který se hýbe se zvukem, vpravo vrstvy (Ring, Wave, Bars,
+Co vidíš: vlevo obraz, který se hýbe se zvukem, vpravo vrstvy (Ring, Particles,
 efekty...) se slidery, tlačítko **Add layer** a nahoře **Fullscreen**.
 
 1. **Add layer -> Ring.** Stejný `StackEditor` jako u bloků zvuku přidá vrstvu do
@@ -610,9 +610,9 @@ ohlídané na rozsah.
 
 1. Řádky černých kláves tmavší (`pitch % 12 in BLACK`), u každého C jméno a čára.
 2. Svislé čáry: slabě každý krok, víc každá doba, nejvíc každý takt.
-   `per_beat = pattern.grid // BEATS_PER_BAR` = kroků na dobu (16 // 4 = 4, 12 // 4 = 3,
-   24 // 4 = 6). Popisek doby: `bar, beat = divmod(step // per_beat, BEATS_PER_BAR)`.
-   Např. krok 20 v mřížce 16: 20 // 4 = 5. doba (od 0), `divmod(5, 4) = (1, 1)`,
+   `per_beat = STEPS_PER_BAR // BEATS_PER_BAR` = kroků na dobu (16 // 4 = 4).
+   Popisek doby: `bar, beat = divmod(step // per_beat, BEATS_PER_BAR)`.
+   Např. krok 20: 20 // 4 = 5. doba (od 0), `divmod(5, 4) = (1, 1)`,
    napíše se `2.2` (2. takt, 2. doba, +1 protože lidi počítají od 1).
 3. Ukazatel přehrávání (jen v Loop):
    `step = self.player.position // pattern.ticks_per_step() % pattern.steps()`.
@@ -777,9 +777,9 @@ zruší `lane`, protože automatizace patří ke konkrétní stopě.
 **`refresh`** (`song_page.py:80`) postaví panel:
 
 - Playback: Mode (Loop / Song), Tempo (40..200 bpm), Song length (4..512 taktů po 4),
-  délka v minutách, Export WAV a text pod ním.
+  délka v minutách.
 - Skupina se jménem stopy: Mute / Duplicate / Remove, Pattern A..H, Length (1, 2, 4 takty),
-  Grid, Clear pattern, Add track.
+  Clear pattern, Add track.
 - Automation: dropdown se všemi slidery nástroje a jeho bloků, které nejsou přepínače:
 
   ```python
@@ -800,12 +800,9 @@ Tempo je v dobách za minutu, takže doba trvá `60 / tempo` sekund. Takty x 4 d
 doby. Příklad: 32 taktů při 110 bpm = 32 * 4 * 60 / 110 = 69,8 -> 70 s -> `1:10`
 (`seconds // 60` = minuty, `seconds % 60` = zbylé sekundy).
 
-**`_set_mode`**: když běží export (`player.once`), režim se měnit nesmí (export nahrává
-v Song), panel se jen vrátí zpátky. Jinak: zastavit, přepnout, a když hrálo, zase pustit.
+**`_set_mode`**: zastaví přehrávač, přepne režim a když předtím hrálo, zase pustí.
 
 **`_set_length`**: změní počet taktů patternu a vyhodí noty, které začínají za novým koncem.
-
-**`_set_grid`**: přepočítá noty na novou mřížku (`Pattern.set_grid`, viz kapitola 20).
 
 **`_preview`** (`song_page.py:245`):
 
@@ -945,24 +942,23 @@ stejnou výšku, což odpovídá tomu, jak to slyší ucho.
   `SongPage`, `VisualPage`, `LightPage`; nastavuje `keys.on_space = self._toggle_playing`.
 - `MainFrame.select_track` volá `keys.set_channel`, `sound_page.select_track`, `song_page.select_track`.
 - `MainFrame._on_tick` (časovač 30 FPS) volá `tick` všech čtyř stránek.
-- `MainFrame._on_activate` volá `keys.focus_lost`; export WAV volá `keys.release_all`;
+- `MainFrame._on_activate` volá `keys.focus_lost`;
   `MainFrame._on_close` volá `keys.close`, `light_page.close` a zavírá fullscreen.
-- Export WAV (`MainFrame`) posílá průběh do `song_page.show_export`.
-- Undo / Open souboru a automatizace z jiných míst volají `refresh` stránek a nastavují `song_page.lane`.
+- Open souboru a automatizace z jiných míst volají `refresh` stránek a nastavují `song_page.lane`.
 - `sound_page.py` vkládá `PianoView`; `song_page.py` vkládá `PatternView` a `TimelineView`.
 - `piano.py` a `pattern_view.py` berou `note_name` z `keys.py`.
 
 **Co volají moje soubory:**
 
 - `sirens/audio/engine.py`: `send_note` (klávesy, náhled noty), `set_volume` (Master).
-- `sirens/song.py`: `Note`, `Pattern`, `BEATS_PER_BAR`, `GRIDS`, `TICKS_PER_BAR`,
-  `PATTERN_NAMES`, `MAX_TRACKS`, `MIN_BARS`, `MAX_BARS`; metody `note_at`, `set_grid`,
+- `sirens/song.py`: `Note`, `Pattern`, `BEATS_PER_BAR`, `STEPS_PER_BAR`, `TICKS_PER_BAR`,
+  `PATTERN_NAMES`, `MAX_TRACKS`, `MIN_BARS`, `MAX_BARS`; metody `note_at`,
   `ticks_per_step`, `add_track`, `remove_track`, `automated_owners`.
-- `sirens/audio/player.py` (`Player`): `playing`, `mode`, `position`, `start_bar`, `once`,
+- `sirens/audio/player.py` (`Player`): `playing`, `mode`, `position`, `start_bar`,
   `play`, `stop`, `set_tempo`.
 - `sirens/session.py`: `sound_of`, `apply_sound` (Copy / Paste sound), `duplicate`.
 - `sirens/audio/analyzer.py`: `scope`, `spectrum`, `freqs`, `peak_level_db`,
-  `peak_frequency`, `bands`, `SCOPE_VIEW`; `sirens/audio/export.py`: `TAIL`.
+  `peak_frequency`, `bands`, `SCOPE_VIEW`.
 - `sirens/audio/blocks.py` a `sirens/visual/layers.py`: `CATALOG` (co jde přidat).
 - `sirens/visual/painter.py`: `Painter.render`.
 - `sirens/light/rig.py` (`LightRig`) a `sirens/light/artnet.py` (`ArtNetSender`).

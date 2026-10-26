@@ -101,7 +101,7 @@ class SoundPage(wx.Panel):
     def refresh(self):
         """Překreslí pravej panel podle vybraný stopy (smaže a postaví znova)."""
         if self.track not in self.song.tracks:
-            self.track = self.song.tracks[0]       # stopa mezitím zmizela (smazaná, Undo...), vezmu první
+            self.track = self.song.tracks[0]       # stopa mezitím zmizela (smazaná, načtení souboru...), vezmu první
         sidebar = self.sidebar
         sidebar.clear()
         # skupina Track: tlačítka Copy / Paste, výběr stopy, jméno
@@ -120,7 +120,7 @@ class SoundPage(wx.Panel):
         sidebar.add_params(self.track.instrument)
         # bloky (zdroje a efekty) přes StackEditor, stejně jako vrstvy ve Visual
         self.editor.show(self.track.instrument.rack,
-                         "No sound yet. Add a source (Oscillator, Supersaw, FM, ...), "
+                         "No sound yet. Add a source (Oscillator, Noise or Sampler), "
                          "then play with the keys A S D F G H J. Effects go below the source.")
         sidebar.finish()
         self.status.show(f"{self.track.name}: " + (self.track.instrument.rack.describe() or "empty"))

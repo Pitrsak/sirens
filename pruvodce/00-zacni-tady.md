@@ -11,7 +11,7 @@ nepředpokládá, všechno se vysvětluje od nuly.
 | [00-zacni-tady.md](00-zacni-tady.md) | velký obrázek, mapa souborů, co se děje po spuštění | první |
 | [01-zaklady.md](01-zaklady.md) | minimum Pythonu, pyo, wxPython, numpy a zvuku, které kód používá | druhá, pak se k ní vracej |
 | [10-zvuk.md](10-zvuk.md) | jak vzniká zvuk: engine, nástroj, rack, bloky | jádro, číst pečlivě |
-| [20-pisen-a-data.md](20-pisen-a-data.md) | píseň, patterny, přehrávač, ukládání, undo, export WAV | |
+| [20-pisen-a-data.md](20-pisen-a-data.md) | píseň, patterny, přehrávač, ukládání | |
 | [30-obraz-a-svetlo.md](30-obraz-a-svetlo.md) | analýza zvuku (DFT), obraz z vrstev, světlo přes Art-Net | jádro, číst pečlivě |
 | [40-okno-a-ovladaci-prvky.md](40-okno-a-ovladaci-prvky.md) | hlavní okno, jak funguje wxPython, vlastní slidery a tlačítka | |
 | [50-zalozky.md](50-zalozky.md) | záložky Sound / Song / Visual / Light, piano roll, časová osa, klávesy | |
@@ -33,7 +33,7 @@ Spuštění (macOS, ve složce projektu; první dva řádky jen poprvé, viz REA
 2. Z nástrojů pak na **Song** složíš píseň: až 8 stop, každá má patterny s notami a časovou osu.
 3. Na **Visual** se z vrstev skládá abstraktní obraz, který reaguje na to, co právě hraje.
 4. Na **Light** se ze zvuku počítá barva RGB světla a posílá se po síti protokolem Art-Net.
-5. Všechno se samo ukládá (autosave), dá se to vrátit (Undo) a píseň se dá vyexportovat do WAV.
+5. Všechno se samo ukládá (autosave) a dá se to uložit i otevřít jako soubor.
 
 Knihovny: **pyo** (zvuk), **wxPython** (okna a ovládání), **opencv-python** (kreslení do obrazu;
 s ním se instaluje i **numpy**, na počítání s poli čísel). Zbytek je standardní knihovna Pythonu.
@@ -48,7 +48,6 @@ sirens/
   stack.py               Stack = seznam prvků pod sebou (bloky zvuku, vrstvy obrazu)
   song.py                Song, Track, Pattern, Note: data písně
   session.py             převod celé práce na JSON a zpět (Save, Open, autosave, kopírování)
-  history.py             Undo / Redo
   audio/
     engine.py            pyo server a výstup do reproduktorů
     instrument.py        nástroj jedné stopy: noty (MIDI), obálka ADSR, rack
@@ -56,7 +55,6 @@ sirens/
     blocks.py            všechny druhy bloků: zdroje zvuku a efekty
     player.py            přehrávač: hodiny, které posílají noty podle písně
     analyzer.py          analýza zvuku: osciloskop a vlastní DFT (spektrum)
-    export.py            nahrání písně do WAV
   visual/
     features.py          z analýzy spočítá basy, středy, výšky, úder...
     layers.py            všechny druhy vrstev obrazu
@@ -98,7 +96,7 @@ Tohle je asi nejdůležitější věc na pochopení celé aplikace. Běží v n�
 |---|---|---|---|
 | **zvukové vlákno pyo** | pořád, po kouscích 512 vzorků (~11,6 ms) | počítá samotný zvuk ze všech pyo objektů a posílá ho do repro | uvnitř knihovny pyo (v C) |
 | **hodiny přehrávače** | 48x za takt (při 110 BPM asi 20x za s) | když hraje píseň, posílá nástrojům noty a hýbe automatizovanými slidery | `sirens/audio/player.py` |
-| **hlavní vlákno wx** | při každé události + časovač 30x za s | reaguje na myš a klávesy, překresluje, počítá obraz, světlo, undo, autosave | `sirens/ui/main_frame.py`, `_on_tick` |
+| **hlavní vlákno wx** | při každé události + časovač 30x za s | reaguje na myš a klávesy, překresluje, počítá obraz, světlo, autosave | `sirens/ui/main_frame.py`, `_on_tick` |
 
 Python kód nikdy nepočítá jednotlivé vzorky zvuku. Python jen **postaví síť pyo objektů**
 („tenhle oscilátor jde do tohohle filtru“) a mění jejich parametry. Vzorky pak počítá

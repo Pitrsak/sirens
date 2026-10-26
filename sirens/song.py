@@ -12,12 +12,11 @@
 takt = prostě kus času, 4 doby (doba = jedno "ťuk" při počítání do rytmu),
 tempo v BPM říká, kolik dob je za minutu, takže doba trvá 60 / tempo sekund.
 
-Čas v patternu se počítá v krocích. Kolik kroků má takt, určuje mřížka
-patternu (grid): 16 = šestnáctiny (4 kroky na dobu), 12 = osminový trioly
-(3 na dobu), 24 = šestnáctinový trioly (6 na dobu). Takt má vždycky 4 doby.
-Přehrávač ale počítá v jemnějších tikách: TICKS_PER_BAR = 48 je nejmenší číslo
-dělitelný 16, 12 i 24, takže každej krok každý mřížky začne přesně na tiku
-(krok mřížky 16 = 3 tiky, mřížky 12 = 4 tiky, mřížky 24 = 2 tiky).
+Čas v patternu se počítá v krocích: 16 kroků na takt, takže jeden krok je
+šestnáctinová nota (4 kroky na dobu). Takt má vždycky 4 doby.
+Přehrávač ale tiká jemnějc: TICKS_PER_BAR = 48 tiků na takt, takže jeden krok
+mřížky jsou 3 tiky. (Dřív tu byly i trioly s jiným počtem kroků na takt,
+ty jsme zahodili, ať je to jednodušší.)
 
 Automatizace patří k nástroji a k blokům (owner.automation): pro každej slider
 slovník takt -> hodnota, a mezi zadanýma taktama se hodnota plynule mění.
@@ -28,8 +27,9 @@ from dataclasses import dataclass
 from sirens.audio.instrument import Instrument
 
 BEATS_PER_BAR = 4
-GRIDS = (16, 12, 24)                        # možný mřížky: kroků na takt
-TICKS_PER_BAR = 48                          # tiky přehrávače na takt (proč 48, viz nahoře)
+STEPS_PER_BAR = 16                          # kroků na takt: šestnáctiny, 4 na dobu
+TICKS_PER_BAR = 48                          # tiky přehrávače na takt (48 / 16 = 3 tiky na krok)
+TICKS_PER_STEP = TICKS_PER_BAR // STEPS_PER_BAR
 PATTERN_NAMES = "ABCDEFGH"
 MAX_TRACKS = 8
 MIN_BARS, MAX_BARS = 4, 512                 # rozsah délky písně v taktech
@@ -44,41 +44,16 @@ class Note:
 
 
 class Pattern:
-    def __init__(self, bars: int = 1, grid: int = 16):
+    def __init__(self, bars: int = 1):
         self.bars = bars
-        self.grid = grid               # kroků na takt (jedna z GRIDS)
         self.notes: list[Note] = []
 
     def steps(self) -> int:
-        return self.bars * self.grid   # kolik kroků má celej pattern
+        return self.bars * STEPS_PER_BAR   # kolik kroků má celej pattern
 
     def ticks_per_step(self) -> int:
-        """Kolik tiků přehrávače trvá jeden krok (16 -> 3, 12 -> 4, 24 -> 2)."""
-        return TICKS_PER_BAR // self.grid
-
-    def set_grid(self, grid: int):
-        """Změní mřížku a přepočítá noty ve stejným poměru (krok 4 z 16 = krok 3 z 12).
-
-        Nota, která po zaokrouhlení padne na stejný místo jako jiná (stejná výška
-        i krok) nebo za konec patternu, se zahodí. Když by předchozí nota stejný
-        výšky přesahovala do další, zkrátí se, ať se nepřekrývaj.
-        """
-        old, self.grid = self.grid, grid        # starou mřížku si schovám, novou rovnou nastavím
-        kept = []
-        for note in sorted(self.notes, key=lambda n: n.step):    # odleva doprava podle začátku
-            # zaokrouhlení přes int(x + 0.5), půlka jde vždycky nahoru
-            # (proč ne round? Pythonový round(2.5) dá 2, zaokrouhluje k sudýmu číslu)
-            step = int(note.step * grid / old + 0.5)
-            length = max(1, int(note.length * grid / old + 0.5))     # aspoň 1 krok, jinak by nota zmizela
-            if step >= self.steps() or any(n.pitch == note.pitch and n.step == step for n in kept):
-                continue
-            for other in kept:
-                # starší nota stejný výšky, která by ještě zněla, když tahle začne -> zkrátit
-                if other.pitch == note.pitch and other.step < step < other.step + other.length:
-                    other.length = step - other.step
-            # délku ořízneme, ať nepřeleze konec patternu
-            kept.append(Note(step, note.pitch, min(length, self.steps() - step), note.velocity))
-        self.notes = kept
+        """Kolik tiků přehrávače trvá jeden krok (pořád 3)."""
+        return TICKS_PER_STEP
 
     def note_at(self, step: int, pitch: int):
         """Nota, která na daným kroku a výšce zní (nebo None)."""

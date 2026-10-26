@@ -8,10 +8,10 @@ Soubory, o kterých je řeč:
 
 | Soubor | Co v něm je |
 |---|---|
-| `sirens/ui/main_frame.py` | `MainFrame`: hlavní okno, hlavička, menu, časovač, ukládání, Undo / Redo, export |
+| `sirens/ui/main_frame.py` | `MainFrame`: hlavní okno, hlavička, časovač, ukládání |
 | `sirens/ui/theme.py` | barvy a písmo celé aplikace, kreslení textu s rozestupem |
 | `sirens/ui/slider.py` | `Slider`: vlastní kreslený slider |
-| `sirens/ui/widgets.py` | malé kreslené prvky: `Caption`, `PillButton`, `TextButton`, `ArrowButton`, `StatusPill`, `ChoiceRow`, `confirm` |
+| `sirens/ui/widgets.py` | malé kreslené prvky: `Caption`, `PillButton`, `TextButton`, `StatusPill`, `ChoiceRow`, `confirm` |
 | `sirens/ui/sidebar.py` | `Sidebar`: pravý panel, do kterého se skládají slidery; `divider` (tenká čára) |
 | `sirens/ui/stack_editor.py` | `StackEditor`: úprava seznamu bloků zvuku / vrstev obrazu v panelu |
 | `sirens/ui/views.py` | `GraphView` a podtřídy `ScopeView`, `SpectrumView`, `VisualView`, `LightView` |
@@ -26,7 +26,7 @@ z čeho jsou postavené.
 
 ```
 +--------------------------------------------------------------------------------------+
-| SIRENS  <- ->   [Sound] [Song] [Visual] [Light]          [Open] [Save]   [ Play ]   |  hlavička
+| SIRENS          [Sound] [Song] [Visual] [Light]          [Open] [Save]   [ Play ]   |  hlavička
 +--------------------------------------------------------------------------------------+  divider
 |                                                      | OUTPUT                        |
 |   +-----------------------------------------------+  | [Master ██████░░░░]  [0.50]   |
@@ -45,9 +45,8 @@ z čeho jsou postavené.
 
 Kdo co kreslí:
 
-- **Celé okno, hlavička, menu Edit**: `MainFrame` v `sirens/ui/main_frame.py`.
+- **Celé okno a hlavička**: `MainFrame` v `sirens/ui/main_frame.py`.
 - **Logo "SIRENS" a nadpisy skupin** ("OUTPUT", "ENVELOPE"): `Caption` ve `widgets.py`.
-- **Šipky Undo / Redo** vedle loga: `ArrowButton` ve `widgets.py`.
 - **Záložky, Open, Save, Play a tlačítka typu "Add block"**: `PillButton` ve `widgets.py`.
   Vybraná záložka a Play jsou bílé (`primary=True`).
 - **Malá textová tlačítka** u nadpisu (Off, Up, Down, Remove, Copy sound): `TextButton`.
@@ -177,7 +176,7 @@ Události, které v naší části potkáš:
 | `EVT_MOTION` | pohyb myši | slider (tažení, kurzor) |
 | `EVT_MOUSEWHEEL` | kolečko | slider |
 | `EVT_ENTER_WINDOW` / `EVT_LEAVE_WINDOW` | myš vjela nad prvek / odjela | zvýraznění pod myší ("hot") |
-| `EVT_MENU` | položka menu (i přes klávesovou zkratku) | Undo / Redo, menu Add block |
+| `EVT_MENU` | položka menu | menu Add block |
 | `EVT_ACTIVATE` | okno získalo / ztratilo fokus | `MainFrame._on_activate` |
 | `EVT_CLOSE` | okno se zavírá | `MainFrame._on_close` |
 | `EVT_TEXT`, `EVT_TEXT_ENTER` | změna textu / Enter v políčku | `Sidebar.add_text`, slider |
@@ -235,7 +234,7 @@ Co to znamená:
 **Cesty** (`gc.CreatePath()`): posloupnost bodů a oblouků. `MoveToPoint` = přesuň pero
 bez kreslení, `AddLineToPoint` = čára k bodu, `AddArc` = oblouk. Pak `gc.StrokePath(path)`
 = obtáhni čarou, `gc.FillPath(path)` = vyplň. Takhle se kreslí křivka osciloskopu,
-spektra i šipky Undo / Redo.
+spektra.
 
 ### Časovač `wx.Timer`
 
@@ -266,19 +265,16 @@ slider "držel" myš dál.
 **Fokus** = který prvek právě dostává klávesy. Typicky textové políčko, do kterého se
 píše. `SetFocus()` ho prvku dá, `EVT_KILL_FOCUS` přijde, když ho prvek ztratí.
 
-V Sirens jsou dvě cesty, kudy jdou klávesy:
+V Sirens jde o jednu cestu:
 
-1. **Hraní na klávesnici** (`keys.py`, kapitola 50) chytá stisky **filtrem událostí**,
-   který vidí každou klávesu v celé aplikaci dřív než prvky. Proto naše kreslené
-   prvky nemusí řešit fokus. Výjimka: textová políčka (`wx.TextCtrl`) a stisky
-   s Cmd / Ctrl filtr pouští dál.
-2. **Klávesové zkratky menu** (accelerators): v názvu položky menu je za tabulátorem
-   zkratka, `"Undo\tCtrl+Z"`. wx ji hlídá sám a při stisku pošle `EVT_MENU`, jako
-   by se kliklo v menu. Na macOS wx `Ctrl` sám přeloží na `Cmd`. Druhá zkratka pro
-   Redo se přidá přes `AddExtraAccel` (`main_frame.py:150`). Klávesa Z je zároveň nota,
-   ale protože filtr stisky s Cmd/Ctrl propouští, Cmd+Z dojde až do menu.
+**Hraní na klávesnici** (`keys.py`, kapitola 50) chytá stisky **filtrem událostí**,
+který vidí každou klávesu v celé aplikaci dřív než prvky. Proto naše kreslené
+prvky nemusí řešit fokus. Výjimka: textová políčka (`wx.TextCtrl`) a stisky
+s Cmd / Ctrl filtr pouští dál, aby šlo psát čísla a normálně ovládat systém.
 
-`EVT_ACTIVATE` (`main_frame.py:395`): když přepneš do jiné aplikace, okno ztratí fokus
+Vlastní menu aplikace nemá, takže žádné klávesové zkratky přes `EVT_MENU` neřešíme.
+
+`EVT_ACTIVATE` (`main_frame.py:218`): když přepneš do jiné aplikace, okno ztratí fokus
 a puštění klávesy už k nám nedojde. Kdybychom nic neudělali, nota by zněla donekonečna.
 Proto `_on_activate` zavolá `self.keys.focus_lost()`.
 
@@ -306,9 +302,9 @@ zajistí, že se dialog po použití zruší.
 __main__.py
   wx.App ---> MainLoop (čeká na události)
   MainFrame (main_frame.py)
-   |-- song, player, keys (KeyboardPlayer), history, export
+   |-- song, player, keys (KeyboardPlayer)
    |-- root (wx.Panel)
-   |    |-- hlavička: Caption "SIRENS", ArrowButton x2, PillButton (záložky, Open, Save, Play)
+   |    |-- hlavička: Caption "SIRENS", PillButton (záložky, Open, Save, Play)
    |    |-- divider
    |    |-- SoundPage  --+-- ScopeView, SpectrumView, StatusPill, PianoView   (viewport)
    |    |                +-- Sidebar --+-- fixed: Caption, Slider "Master", ChoiceRow "Keys"
@@ -318,14 +314,11 @@ __main__.py
    |    |-- SongPage   --+-- pattern / timeline views + Sidebar
    |    |-- VisualPage --+-- VisualView + Sidebar + StackEditor (vrstvy)
    |    |-- LightPage  --+-- LightView, StatusPill + Sidebar
-   |-- menu Edit (Undo, Redo)
    |-- wx.Timer 30x/s
           |
           v
      _on_tick (každých 33 ms)
-       |-- každý 10. tik: _snapshot -> history.record (Undo)
-       |                    \-- každý 60. tik: _autosave -> ~/.sirens/autosave.json
-       |-- běží export? -> _export_tick
+       |-- každý 60. tik: _autosave -> ~/.sirens/autosave.json
        |-- analyzer.update()  (nový úsek zvuku?)
        |-- viditelná záložka .tick(...) -> view.show(data) -> Refresh() -> EVT_PAINT -> draw
        \-- light_page.tick (vždycky, světlo svítí pořád)
@@ -347,36 +340,32 @@ Co se se hodnotou stane, řeší objekt, kterému patří (blok, vrstva, světlo
 
 ### `sirens/ui/main_frame.py`: hlavní okno
 
-#### Konstanty (`main_frame.py:44`)
+#### Konstanty (`main_frame.py:36`)
 
 - `FPS = 30`: kolikrát za sekundu tiká časovač. 30 snímků stačí na plynulý pohyb
   grafů a nezatíží procesor.
-- `SNAPSHOT_EVERY = 10`: každý 10. tik (1/3 s) se zachytí stav pro Undo.
-- `AUTOSAVE_EVERY = 2 * FPS`: každý 60. tik (2 s) autosave. Musí to být násobek 10,
-  protože autosave se kontroluje uvnitř `_snapshot`, který se volá jen každý 10. tik.
+- `AUTOSAVE_EVERY = 2 * FPS`: každý 60. tik (2 s) se uloží autosave.
 - `SAVE_FOLDER`: složka `assets/` v kořeni projektu. `Path(__file__).resolve().parents[2]`:
   `__file__` je cesta k `main_frame.py`, `parents[0]` je `ui/`, `[1]` je `sirens/`,
   `[2]` je kořen.
-- `FILE_TYPES`, `WAV_TYPES`: filtr do dialogu ve formátu `"popisek|maska"`.
+- `FILE_TYPES`: filtr do dialogu ve formátu `"popisek|maska"`.
 
-#### `__init__` (`main_frame.py:54`)
+#### `__init__` (`main_frame.py:44`)
 
 Postupně:
 1. Okno 1280 x 820, minimum 1000 x 680 (menší by se nevešel panel se slidery).
 2. Vytvoří píseň s jednou stopou, přehrávač, hraní na klávesnici (mezerník = Play / Stop),
    pustí výstupy všech stop do enginu.
 3. `root` panel a v něm všechny čtyři záložky. Záložky dostávají **funkce** z okna jako
-   argumenty (`self.select_track`, `self._tracks_changed`, `self._export_wav`), takže
-   když uživatel v záložce vybere stopu, záložka zavolá okno a okno to rozešle všem.
-   Záložky o sobě navzájem nevědí.
+   argumenty (`self.select_track`, `self._tracks_changed`), takže když uživatel v záložce
+   vybere stopu, záložka zavolá okno a okno to rozešle všem. Záložky o sobě navzájem nevědí.
 4. Sizer: hlavička, čára, záložky.
-5. Menu, načtení autosave, první záznam do historie (výchozí stav pro Undo), výběr
-   záložky Sound.
+5. Načtení autosave a výběr záložky Sound.
 6. Časovač a navázání `EVT_ACTIVATE` a `EVT_CLOSE`.
 
-#### Hlavička: `_build_header` (`main_frame.py:110`)
+#### Hlavička: `_build_header` (`main_frame.py:93`)
 
-Vodorovný sizer: logo, šipky, čtyři záložky, pružina, Open, Save, Play. Zajímavý je jeden řádek:
+Vodorovný sizer: logo, čtyři záložky, pružina, Open, Save, Play. Zajímavý je jeden řádek:
 
 ```python
 self.tabs[name] = PillButton(header, name, lambda n=name: self._select_tab(n))
@@ -388,12 +377,7 @@ hotový a `name` by bylo `"Light"`, takže všechna čtyři tlačítka by přep�
 Výchozí hodnota parametru (`n=name`) se ale vyhodnotí hned při vytvoření lambdy, takže
 každá lambda dostane svoji kopii. Stejný trik je v `sidebar.py:114` a `stack_editor.py`.
 
-#### Menu: `_build_menu` (`main_frame.py:139`)
-
-Menu Edit s Undo (`Ctrl+Z`) a Redo (`Ctrl+Shift+Z`, navíc `Ctrl+Y`). `Bind(wx.EVT_MENU, ...,
-self.undo_item)`: třetí argument říká, že se to týká jen téhle položky.
-
-#### Přepínání záložek: `_select_tab` (`main_frame.py:159`)
+#### Přepínání záložek: `_select_tab` (`main_frame.py:118`)
 
 ```python
 for tab_name, page in self.pages.items():
@@ -405,23 +389,17 @@ page.GetParent().Layout()
 `Layout()` přepočítá sizer, aby nově ukázaná záložka dostala místo. `page` je po cyklu
 poslední záložka, ale všechny mají stejného rodiče (`root`), takže je to jedno.
 
-#### Stopy: `select_track`, `_tracks_changed` (`main_frame.py:170`)
+#### Stopy: `select_track`, `_tracks_changed` (`main_frame.py:129`)
 
 Okno hlídá, aby Sound i Song měly vybranou stejnou stopu, a přepne klávesnici na kanál
 nástroje té stopy. Po přidání / smazání stopy pošle enginu nový mix výstupů.
 
-#### Přehrávání a export (`main_frame.py:183` až `:243`)
+#### Přehrávání (`main_frame.py:142`)
 
-- `_toggle_playing`: Play / Stop. Když běží export, Stop (i mezerník) export zruší.
+- `_toggle_playing`: Play / Stop.
 - `_show_playing`: text tlačítka Play / Stop podle stavu.
-- `_export_wav`: zkontroluje, že na časové ose něco je, zeptá se na soubor (`FileDialog`)
-  a spustí `start_export`. Ten pustí držené klávesy (jinak by se nahrály) a vytvoří
-  `Export` (kapitola 20).
-- `_export_tick`: volá se každý tik, ukazuje průběh v záložce Song; po dokončení `export = None`.
-- Během exportu nejde Undo, Redo ani Open (`self.export is not None` -> `return`),
-  aby se píseň uprostřed nahrávání nezměnila.
 
-#### Ukládání (`main_frame.py:245` až `:293`)
+#### Ukládání (`main_frame.py:150`)
 
 - `_capture`: celý stav jako slovník (`session.capture`, kapitola 20).
 - `_apply`: zastaví přehrávač, obnoví stav, znovu zapojí výstupy, překreslí panely,
@@ -431,35 +409,14 @@ nástroje té stopy. Po přidání / smazání stopy pošle enginu nový mix vý
 - `_autosave`: zapíše jen tehdy, když se text liší od minula (`last_saved`).
 - `_save`, `_open`: dialogy. Chyba při otevírání = hláška, ne pád.
 
-#### Undo / Redo (`main_frame.py:295` až `:373`)
-
-`_snapshot` (`main_frame.py:295`) se volá každou 1/3 s:
-
-```python
-mouse = wx.GetMouseState()
-if not (mouse.LeftIsDown() or mouse.RightIsDown() or mouse.MiddleIsDown()):
-    self.history.record(json.dumps(data), change_key(data))
-```
-
-Trik: dokud držíš tlačítko myši (táhneš slider, notu), stav se do historie nezapisuje.
-Zapíše se až po puštění, takže **celé tažení = jeden krok Undo**, ne desítky malých.
-
-`_go_to` obnoví stav z historie. Protože `_apply` vyrobí všechny objekty znovu, nejde si
-pamatovat "vybraný objekt", pamatuje se **pořadí** vybrané stopy a ukázané automatizace
-(`_lane_place`, `_show_lane`). Pokud se hrálo, přehrávání pokračuje od `player.tick`.
-
-`_update_menu` zapne / vypne položky menu a šipky podle toho, jestli je co vracet.
-
-#### Hlavní smyčka: `_on_tick` (`main_frame.py:375`)
+#### Hlavní smyčka: `_on_tick` (`main_frame.py:200`)
 
 ```python
 now = time.monotonic()
 dt, self.last_time = now - self.last_time, now
 self.ticks += 1
-if self.ticks % SNAPSHOT_EVERY == 0:
-    self._snapshot()
-if self.export is not None:
-    self._export_tick()
+if self.ticks % AUTOSAVE_EVERY == 0:
+    self._autosave(self._capture())
 analyzer = self.engine.analyzer
 fresh = analyzer.update()
 if self.sound_page.IsShown():
@@ -474,12 +431,11 @@ self.light_page.tick(analyzer)
   Výjimka: Visual běží i z jiné záložky, když je otevřený fullscreen (projektor).
   Světlo běží vždycky, svítí, ať se díváš kamkoli.
 
-#### Zavření: `_on_close` (`main_frame.py:402`)
+#### Zavření: `_on_close` (`main_frame.py:225`)
 
 Pořadí je důležité: zastavit časovač (ať netiká do napůl zrušených věcí), uložit autosave,
-dopsat rozdělaný export (dřív než se zastaví zvukový server), zavřít přehrávač,
-klávesnici, fullscreen okno, světlo, engine. Nakonec `event.Skip()`, teprve to okno
-opravdu zavře.
+zavřít přehrávač, klávesnici, fullscreen okno, světlo, engine. Nakonec `event.Skip()`,
+teprve to okno opravdu zavře.
 
 ---
 
@@ -654,25 +610,19 @@ v tmavém okně svítilo systémové tlačítko. Všechny prvky tady jedou podle
 dědí z `wx.Control`, mají `BG_STYLE_PAINT`, kreslí se v `_on_paint` přes
 `AutoBufferedPaintDC` a `GraphicsContext`, a po změně stavu volají `Refresh()`.
 
-- **`Caption`** (`widgets.py:22`): nadpis velkými písmeny s rozestupem (`draw_spaced`).
-- **`PillButton`** (`widgets.py:42`): zaoblené tlačítko. `primary=True` = bílé s černým
+- **`Caption`** (`widgets.py:20`): nadpis velkými písmeny s rozestupem (`draw_spaced`).
+- **`PillButton`** (`widgets.py:40`): zaoblené tlačítko. `primary=True` = bílé s černým
   textem (Play, vybraná záložka), jinak jen obrys. Klik = `EVT_LEFT_UP` (puštění tlačítka
   myši) zavolá `on_click`. `set_label` změní text a přepočítá šířku (text + 32 px, aspoň
   72 px). `set_primary` přepíná vzhled u záložek. Kurzor ručička (`CURSOR_HAND`).
-- **`TextButton`** (`widgets.py:95`): jen text (Off, Remove...), pod myší zkorálovatí.
-- **`ArrowButton`** (`widgets.py:125`): ikona Undo / Redo nakreslená cestou: čára, půlkruh
-  (`AddArc`), hrot. Redo je stejný kód zrcadlově: `gc.Translate(SIZE, 0)` posune počátek
-  na pravý okraj a `gc.Scale(-1, 1)` otočí osu x. `set_enabled` vypne prvek, když není
-  co vracet; vypnutý prvek wx kliknutí vůbec nepošle, a prvek se nakreslí tmavě.
-  Překresluje se jen při změně, protože se volá 3x za sekundu. Má tooltip
-  (bublina se zkratkou).
-- **`StatusPill`** (`widgets.py:186`): štítek pod grafy, `show(text, error)`. Při chybě
+- **`TextButton`** (`widgets.py:93`): jen text (Off, Remove...), pod myší zkorálovatí.
+- **`StatusPill`** (`widgets.py:123`): štítek pod grafy, `show(text, error)`. Při chybě
   korálový okraj a text.
-- **`ChoiceRow`** (`widgets.py:215`): popisek a řada tlačítek, vybrané je právě jedno
+- **`ChoiceRow`** (`widgets.py:152`): popisek a řada tlačítek, vybrané je právě jedno
   (Sine / Saw / Square, Loop / Song). Šířka za popiskem se rozdělí rovným dílem
   (`_option_rects`); při kliknutí se najde obdélník, ve kterém je x myši, a zavolá se
   `on_change(index)`.
-- **`confirm`** (`widgets.py:267`): dialog před nevratnou akcí. Tlačítka se jmenují podle
+- **`confirm`** (`widgets.py:204`): dialog před nevratnou akcí. Tlačítka se jmenují podle
   akce ("Remove" / "Cancel"), protože u "Yes / No" se na macOS snadno klikne na modré
   výchozí No. `wx.NO_DEFAULT` = výchozí je bezpečná volba.
 
@@ -861,9 +811,9 @@ Sizer počítá pozice a velikosti prvků. `1` = prvek dostane podíl volného m
 svoje minimum), `wx.EXPAND` = roztáhne se i do druhého směru.
 
 **6. Jak funguje časovač a co se děje v `_on_tick`?**
-`wx.Timer` posílá `EVT_TIMER` každých 33 ms (30 fps). `_on_tick` změří `dt`, každou 1/3 s
-zachytí stav pro Undo, každé 2 s autosave, posune export, aktualizuje analyzátor a nechá
-překreslit jen viditelnou záložku (plus fullscreen obraz a světlo vždycky).
+`wx.Timer` posílá `EVT_TIMER` každých 33 ms (30 fps). `_on_tick` změří `dt`, každé 2 s
+uloží autosave, aktualizuje analyzátor a nechá překreslit jen viditelnou záložku
+(plus fullscreen obraz a světlo vždycky).
 
 **7. Proč `lambda n=name: ...` v cyklu?**
 Lambda si pamatuje proměnnou, ne hodnotu; po cyklu by všechny lambdy viděly poslední
@@ -873,16 +823,12 @@ hodnotu. Výchozí parametr se vyhodnotí hned, takže každá lambda má svoji.
 Prvek nejde zrušit uprostřed obsluhy jeho vlastní události. Kliknutí na Remove smaže
 celý panel včetně tlačítka Remove, proto se změna provede až po dokončení kliknutí.
 
-**9. Jak to, že tažení slideru je v Undo jen jeden krok?**
-`_snapshot` se dívá přes `wx.GetMouseState()`, jestli je stisknuté tlačítko myši. Dokud ano,
-do historie nic nezapíše. Zapíše až stav po puštění.
-
-**10. Jak pravý panel ví, jaké slidery ukázat?**
+**9. Jak pravý panel ví, jaké slidery ukázat?**
 Každý blok / vrstva / světlo má `PARAMS` (seznam `Param`) a `get` / `set`.
 `Sidebar.add_params` pro každý parametr vyrobí slider a napojí ho na `owner.set`. Panel
 o zvuku nic neví, takže nový blok nepotřebuje žádnou změnu UI.
 
-**11. Proč tažení slideru pokračuje, i když myš ujede mimo něj?**
+**10. Proč tažení slideru pokračuje, i když myš ujede mimo něj?**
 `CaptureMouse()` při stisku: všechny události myši chodí slideru, dokud se při puštění
 nezavolá `ReleaseMouse()`.
 
@@ -896,7 +842,7 @@ Kdo volá do souborů z této kapitoly:
 |---|---|
 | `sirens/__main__.py:12` | vytvoří `MainFrame(engine)` |
 | `sirens/ui/sound_page.py` | `Sidebar` (s pevnou částí), `divider`, `StackEditor` ("Add block"), `ScopeView`, `SpectrumView`, `StatusPill`, `confirm` (Paste sound), `theme` |
-| `sirens/ui/song_page.py` | `Sidebar`, `divider`, `confirm` (Remove track), `theme`; `add_slider` (Tempo, Song length), `add_choice`, `add_dropdown`, `add_note` / `set_note` (průběh exportu) |
+| `sirens/ui/song_page.py` | `Sidebar`, `divider`, `confirm` (Remove track), `theme`; `add_slider` (Tempo, Song length), `add_choice`, `add_dropdown`, `add_note` (délka písně) |
 | `sirens/ui/visual_page.py` | `Sidebar` (pevná část s Fullscreen), `divider`, `StackEditor` ("Add layer"), `VisualView`, `theme` |
 | `sirens/ui/light_page.py` | `Sidebar`, `divider`, `LightView`, `StatusPill`, `theme`; `add_text` (IP adresa) |
 | `sirens/ui/piano.py`, `pattern_view.py`, `timeline_view.py` | jen barvy a písmo z `theme` |
@@ -911,6 +857,4 @@ Kam volá `MainFrame`:
 | `sirens/ui/keys.py` (`KeyboardPlayer`) | hraní na klávesnici, mezerník, kanál vybrané stopy |
 | `sirens/audio/engine.py` | `engine.play(outputs)`, `engine.analyzer`, `engine.close()` |
 | `sirens/session.py` | `capture`, `restore`, `read`, `write`, `AUTOSAVE` |
-| `sirens/history.py` | `History`, `change_key` (Undo / Redo) |
-| `sirens/audio/export.py` (`Export`) | export WAV |
-| všechny čtyři `*_page.py` | `tick`, `select_track`, `refresh`, `show_export`, `fullscreen` |
+| všechny čtyři `*_page.py` | `tick`, `select_track`, `refresh`, `fullscreen` |

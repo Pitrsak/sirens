@@ -6,7 +6,6 @@
 co hraje, se dá kdykoli vyměnit (po přidání nebo smazání stopy), zbytek
 řetězce zůstává. výměna proběhne s krátkým prolnutím, aby to necvaklo.
 noty dostávaj nástroje jako MIDI zprávy (send_note).
-výstup se dá nahrát do WAV (start_recording / stop_recording, viz export.py).
 """
 
 from pyo import Clip, InputFader, Mix, Pan, Server, Sig, SigTo
@@ -69,16 +68,6 @@ class AudioEngine:
 
     def set_volume(self, value: float):
         self.volume.value = value
-
-    def start_recording(self, path: str):
-        """začne nahrávat výstup serveru (přesně to, co jde do repro) do WAV.
-        fileformat=0 je WAV, sampletype=1 je 24 bitů na vzorek."""
-        self.server.recordOptions(filename=path, fileformat=0, sampletype=1)
-        self.server.recstart()
-
-    def stop_recording(self):
-        """ukončí nahrávání a dopíše soubor."""
-        self.server.recstop()
 
     def close(self):
         # při zavření okna: zastavit zvuk a vypnout server

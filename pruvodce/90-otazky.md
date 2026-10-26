@@ -12,8 +12,8 @@ pak teprve čti odpověď.
 **1. Popiš architekturu aplikace. Proč je rozdělená takhle?**
 
 Pět částí podle toho, co dělají: `audio/` (zvuk: engine, nástroj, bloky, přehrávač, analýza),
-`visual/` (obraz z vrstev), `light/` (světlo přes Art-Net), datová část (`song.py`, `session.py`,
-`history.py`) a `ui/` (okno). Zvuk ani obraz nic neví o oknech, UI jen ukazuje data a volá jejich metody.
+`visual/` (obraz z vrstev), `light/` (světlo přes Art-Net), datová část (`song.py`, `session.py`)
+a `ui/` (okno). Zvuk ani obraz nic neví o oknech, UI jen ukazuje data a volá jejich metody.
 Každá část jde pochopit, vyzkoušet a změnit zvlášť.
 
 **2. Co se stane, když stisknu klávesu A?**
@@ -26,7 +26,7 @@ do repro. Viz [00, cesta jedné noty](00-zacni-tady.md).
 **3. Kolik vláken aplikace má a proč?**
 
 Tři: zvukové vlákno pyo (počítá vzorky), hodiny přehrávače (posílají noty, vlastní vlákno kvůli přesnému
-rytmu) a hlavní vlákno wx (události a časovač 30x za sekundu: obraz, světlo, undo, autosave).
+rytmu) a hlavní vlákno wx (události a časovač 30x za sekundu: obraz, světlo, autosave).
 
 **4. Kde děláte vlastní zpracování zvuku, ne jen knihovní funkci?**
 
@@ -38,7 +38,7 @@ pásma basy/středy/výšky a detekce úderu ve `features.py`. Podrobně v kapit
 
 Celý obraz je numpy pole, které vrstvy postupně mění: míchání vrstev, zpětná vazba (Feedback,
 obraz minulého snímku se znovu použije), záře (Glow), vlnění posunem pixelů (Warp),
-zrcadlení (Mirror), rozjetí barev (RGB Split), pixelizace (Pixelate).
+zrcadlení (Mirror) a částicová simulace (Particles).
 opencv používáme na kreslení tvarů a na pár operací (rozmazání, otočení); kdy co, je v kapitole 30.
 
 **6. Jak spolu souvisí zvuk a obraz?**
@@ -62,16 +62,16 @@ Kapitola 10, „Tři pravidla proti pádům“.
 
 **9. Jak funguje přehrávač a proč 48 tiků na takt?**
 
-Hodiny ve vlastním vlákně tikají 48x za takt; 48 je nejmenší číslo dělitelné 16, 12 i 24,
-takže se do taktu vejdou kroky všech mřížek (šestnáctiny i trioly). Na každém tiku pošlou noty,
-které začínají, a vypnou ty, kterým skončila délka. Čas dalšího tiku se přičítá k minulému, ne k „teď“,
-takže rytmus neujíždí. Kapitola 20.
+Hodiny ve vlastním vlákně tikají 48x za takt. Mřížka je pevně po šestnáctinách (16 kroků na takt)
+a jeden krok jsou 3 tiky, takže 16 * 3 = 48. Tik je nejmenší jednotka přehrávače, na každém tiku
+pošle noty, které začínají, a vypne ty, kterým skončila délka. Čas dalšího tiku se přičítá
+k minulému, ne k „teď“, takže rytmus neujíždí. Kapitola 20.
 
-**10. Jak funguje ukládání, autosave a undo?**
+**10. Jak funguje ukládání a autosave?**
 
 `session.py` převede celou práci na slovník a ten na JSON text. Save ho zapíše do souboru, autosave
-každé 2 s do `~/.sirens/autosave.json` (přes dočasný soubor, aby se při pádu nepoškodil). Undo si
-každou 1/3 s uloží snímek stavu, když se změnil, a při Undo se stav ze snímku obnoví. Kapitola 20.
+každé 2 s do `~/.sirens/autosave.json` (přes dočasný soubor, aby se při pádu nepoškodil). Při startu
+se autosave načte, když existuje. Kapitola 20.
 
 **11. Jak funguje Art-Net?**
 

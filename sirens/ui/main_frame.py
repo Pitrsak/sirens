@@ -1,8 +1,8 @@
 """Hlavní okno, tady se to celý skládá dohromady: nahoře hlavička se záložkami,
-pod ní obsah tý záložky, která je zrovna vybraná (Undo / Redo jsou šipky hned za logem).
+pod ní obsah tý záložky, která je zrovna vybraná.
 
     +---------------------------------------------------------------------------------+
-    | SIRENS  [Undo] [Redo]  [Sound] [Song] [Visual] [Light]    [Open] [Save]  [Play] |
+    | SIRENS  [Sound] [Song] [Visual] [Light]              [Open] [Save]  [Play]      |
     +---------------------------------------------------------------------------------+
     |  obsah záložky (SoundPage, SongPage, VisualPage nebo LightPage)                 |
     +---------------------------------------------------------------------------------+
@@ -12,13 +12,7 @@ a hlídá, aby všechny záložky měly vybranou stejnou stopu (jinak by Sound u
 jinou stopu než Song, blbost).
 
 Srdce je časovač, tiká 30x za sekundu a pokaždý předá záložkám nový úsek zvuku.
-Každou 1/3 s navíc zachytí stav pro Undo / Redo (viz history.py) a každý 2 s ho
-uloží do autosave (viz session.py). Undo a Redo jsou v menu Edit (Cmd+Z,
-Cmd+Shift+Z, na Windows Ctrl+Z, Ctrl+Y) a taky jako šipky v hlavičce.
-
-Export WAV (tlačítko je v záložce Song) řídí taky okno, přes Export (viz export.py).
-Pozor na to, co se děje během exportu: tlačítko Play ukazuje Stop, Stop i mezerník
-export zruší, a Undo, Redo a Open nejdou, aby se píseň uprostřed nahrávání nezměnila.
+Každý 2 s navíc uloží stav do autosave (viz session.py), aby se po pádu nic neztratilo.
 """
 
 import json
@@ -28,9 +22,7 @@ from pathlib import Path
 import wx
 
 from sirens import session
-from sirens.audio.export import Export
 from sirens.audio.player import Player
-from sirens.history import History, change_key
 from sirens.song import Song
 from sirens.ui import theme
 from sirens.ui.keys import KeyboardPlayer
@@ -39,14 +31,12 @@ from sirens.ui.sidebar import divider
 from sirens.ui.song_page import SongPage
 from sirens.ui.sound_page import SoundPage
 from sirens.ui.visual_page import VisualPage
-from sirens.ui.widgets import ArrowButton, Caption, PillButton
+from sirens.ui.widgets import Caption, PillButton
 
 FPS = 30                     # kolikrát za sekundu tikne časovač (snímky za sekundu)
-SNAPSHOT_EVERY = 10          # po kolika snímcích zachytit stav pro Undo (10 snímků = 1/3 s)
-AUTOSAVE_EVERY = 2 * FPS     # po kolika snímcích autosave (= 2 s), musí to být násobek SNAPSHOT_EVERY, jinak by se to netrefilo
+AUTOSAVE_EVERY = 2 * FPS     # po kolika snímcích autosave (= 2 s)
 SAVE_FOLDER = Path(__file__).resolve().parents[2] / "assets"   # výchozí složka pro Save/Open (parents[2] = ui -> sirens -> kořen projektu)
 FILE_TYPES = "Sirens files (*.json)|*.json"   # filtr do dialogu, formát "popisek|maska", ukáže jen .json
-WAV_TYPES = "WAV files (*.wav)|*.wav"
 
 
 # wx.Frame = okno s titulkem a křížkem, celá appka má jedno hlavní
@@ -64,8 +54,6 @@ class MainFrame(wx.Frame):
         self.ticks = 0                   # počítadlo snímků od startu
         self.last_time = time.monotonic()   # kdy byl minulej tik (monotonic = hodiny, který nikdy nejdou pozpátku)
         self.last_saved = ""     # text posledního autosave, ať nezapisujeme pořád dokola to samý
-        self.history = History()
-        self.export = None       # běžící Export WAV, jinak None
 
         # NASTAVENÍ GUI
         # Do Frame se nekreslí napřímo, dá se do něj jeden Panel a všechno ostatní je v něm
@@ -74,8 +62,7 @@ class MainFrame(wx.Frame):
         root.SetBackgroundColour(theme.BACKGROUND)
         # vyrobí se rovnou všechny čtyři záložky, vidět bude jen jedna (viz _select_tab)
         self.sound_page = SoundPage(root, engine, self.song, self.keys, self.select_track)
-        self.song_page = SongPage(root, engine, self.song, self.player, self.select_track, self._tracks_changed,
-                                  self._export_wav)
+        self.song_page = SongPage(root, engine, self.song, self.player, self.select_track, self._tracks_changed)
         self.visual_page = VisualPage(root)
         self.light_page = LightPage(root)
         self.pages = {"Sound": self.sound_page, "Song": self.song_page,
@@ -91,11 +78,7 @@ class MainFrame(wx.Frame):
         for page in self.pages.values():
             layout.Add(page, 1, wx.EXPAND)   # schovaný stránky sizer přeskočí, místo dostane ta vidět
         root.SetSizer(layout)
-        self._build_menu()
         self._load_autosave()            # když je autosave z minula, načte se
-        data = self._capture()
-        self.history.record(json.dumps(data), change_key(data))   # výchozí stav, ke kterýmu se dá vrátit
-        self._update_menu()
         self._select_tab("Sound")        # startuje se na Sound
 
         # ČASOVAČ = hlavní smyčka appky
@@ -113,15 +96,11 @@ class MainFrame(wx.Frame):
         header.SetMinSize((-1, 56))      # -1 = šířka je jedno, výška aspoň 56 px
         logo = Caption(header, "Sirens", colour=theme.TEXT, size=13, spacing=4)
         logo.SetMinSize((100, 24))
-        key = "Cmd" if wx.Platform == "__WXMAC__" else "Ctrl"   # jen do bublinky s nápovědou
-        self.undo_button = ArrowButton(header, False, self.undo, f"Undo ({key}+Z)")
-        self.redo_button = ArrowButton(header, True, self.redo, f"Redo ({key}+Shift+Z)")
 
         # řádek vedle sebe (HORIZONTAL); wx.LEFT, 24 = mezera 24 px zleva, ALIGN_CENTER_VERTICAL = na střed výšky
         row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(logo, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 24)
-        row.Add(self.undo_button, 0, wx.ALIGN_CENTER_VERTICAL)
-        row.Add(self.redo_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 24)
+        row.AddSpacer(24)
         self.tabs = {}
         for name in ("Sound", "Song", "Visual", "Light"):
             # n=name: lambda si musí zapamatovat tuhle záložku, ne poslední z cyklu
@@ -135,26 +114,6 @@ class MainFrame(wx.Frame):
         row.Add(self.play_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 20)
         header.SetSizer(row)
         return header
-
-    def _build_menu(self):
-        """Menu Edit s Undo a Redo. "Ctrl" v zkratce si wx na macOS sám přeloží na Cmd.
-
-        Text za tabulátorem v názvu položky je klávesová zkratka (accelerator),
-        wx ji hlídá sám a při stisku pošle EVT_MENU, jako by se kliklo v menu.
-        Pozor, Z je zároveň nota, ale filtr kláves (keys.py) stisky s Cmd/Ctrl
-        propouští, takže dojdou až sem.
-        """
-        edit = wx.Menu()
-        self.undo_item = edit.Append(wx.ID_ANY, "Undo\tCtrl+Z")   # ID_ANY = ať si wx vymyslí číslo samo
-        self.redo_item = edit.Append(wx.ID_ANY, "Redo\tCtrl+Shift+Z")
-        self.redo_item.AddExtraAccel(wx.AcceleratorEntry(wx.ACCEL_CTRL, ord("Y")))   # druhá zkratka Ctrl+Y, zvyk z Windows
-        menu_bar = wx.MenuBar()
-        menu_bar.Append(edit, "Edit")
-        self.SetMenuBar(menu_bar)
-        # lambda e: událost zahodí, undo() ji nepotřebuje; poslední argument = jen pro tuhle položku
-        self.Bind(wx.EVT_MENU, lambda e: self.undo(), self.undo_item)
-        self.Bind(wx.EVT_MENU, lambda e: self.redo(), self.redo_item)
-        self._update_menu()
 
     def _select_tab(self, name: str):
         """Ukáže vybranou záložku a ostatní schová, vybraná má bílý tlačítko."""
@@ -181,64 +140,12 @@ class MainFrame(wx.Frame):
     # --- přehrávání ---
 
     def _toggle_playing(self):
-        if self.export is not None:
-            self._cancel_export()        # Stop / mezerník během exportu = zrušit export
-        else:
-            self.player.toggle()
+        self.player.toggle()
         self._show_playing()
 
     def _show_playing(self):
-        busy = self.player.playing or self.export is not None
-        self.play_button.set_label("Stop" if busy else "Play")
+        self.play_button.set_label("Stop" if self.player.playing else "Play")
         self.play_button.GetParent().Layout()   # Stop je jinak širokej než Play, tak ať se hlavička přeskládá
-
-    # --- export WAV ---
-
-    def _export_wav(self):
-        """Tlačítko Export WAV: zeptá se, kam to uložit, a spustí export."""
-        if self.export is not None:
-            return
-        # je na časový ose aspoň jeden pattern před koncem písně? jinak není co nahrávat
-        if not any(bar < self.song.bars for track in self.song.tracks for bar in track.arrangement):
-            wx.MessageBox("The timeline is empty. Put some patterns on it first.", "Export WAV",
-                          wx.ICON_INFORMATION, self)
-            return
-        # with = dialog se po zavření sám zničí; FD_OVERWRITE_PROMPT = zeptá se, když soubor už existuje
-        with wx.FileDialog(self, "Export WAV", str(SAVE_FOLDER), "my song.wav", WAV_TYPES,
-                           wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as dialog:
-            # ShowModal čeká, dokud uživatel dialog nezavře, a vrátí ID_OK nebo ID_CANCEL
-            if dialog.ShowModal() != wx.ID_OK:
-                return
-            path = Path(dialog.GetPath())
-        self.start_export(path)
-
-    def start_export(self, path: Path):
-        """Spustí export do souboru (píseň se jednou přehraje a nahraje, viz export.py)."""
-        self.keys.release_all()          # držený klávesy by se nahrály taky
-        self.export = Export(self.engine, self.player, path)
-        self._export_changed()
-
-    def _export_tick(self):
-        """Každej snímek: jak daleko je export, do poznámky v záložce Song."""
-        finished = self.export.tick()
-        self.song_page.show_export(self.export.status)
-        if finished:
-            self.export = None
-            self._export_changed()
-
-    def _cancel_export(self):
-        self.export.cancel()
-        self.song_page.show_export(self.export.status)
-        self.export = None
-        self._export_changed()
-
-    def _export_changed(self):
-        """Export začal nebo skončil: přepsat text, režim v panelu, tlačítko Play a menu."""
-        if self.export is not None:
-            self.song_page.show_export(self.export.status)
-        self.song_page.refresh()
-        self._show_playing()
-        self._update_menu()
 
     # --- ukládání ---
 
@@ -278,8 +185,6 @@ class MainFrame(wx.Frame):
                 session.write(Path(dialog.GetPath()), self._capture())
 
     def _open(self):
-        if self.export is not None:
-            return                       # během exportu se píseň nemění
         with wx.FileDialog(self, "Open", str(SAVE_FOLDER), "", FILE_TYPES,
                            wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as dialog:
             if dialog.ShowModal() != wx.ID_OK:
@@ -290,86 +195,6 @@ class MainFrame(wx.Frame):
                 # blbej soubor: hláška místo pádu celý appky
                 wx.MessageBox(f"Cannot open this file:\n{error}", "Open", wx.ICON_ERROR, self)
 
-    # --- undo / redo ---
-
-    def _snapshot(self):
-        """Zachytí stav: zapíše ho do historie a jednou za 2 s i do autosave."""
-        data = self._capture()
-        mouse = wx.GetMouseState()
-        if not (mouse.LeftIsDown() or mouse.RightIsDown() or mouse.MiddleIsDown()):
-            # Při tažení (slider, nota) se čeká na puštění myši, celý tažení = jeden krok Undo.
-            self.history.record(json.dumps(data), change_key(data))
-            self._update_menu()
-        if self.ticks % AUTOSAVE_EVERY == 0:
-            self._autosave(data)
-
-    def _update_menu(self):
-        """Undo / Redo v menu a šipky v hlavičce jsou zapnutý jen tehdy, když je co vracet."""
-        idle = self.export is None       # během exportu se píseň nemění
-        self.undo_item.Enable(self.history.can_undo and idle)
-        self.redo_item.Enable(self.history.can_redo and idle)
-        self.undo_button.set_enabled(self.history.can_undo and idle)
-        self.redo_button.set_enabled(self.history.can_redo and idle)
-
-    def undo(self):
-        if self.export is not None:
-            return
-        data = self._capture()           # aktuální stav, ať se na něj dá pak dát Redo
-        self._go_to(self.history.undo(json.dumps(data), change_key(data)))
-
-    def redo(self):
-        if self.export is not None:
-            return
-        data = self._capture()
-        self._go_to(self.history.redo(json.dumps(data), change_key(data)))
-
-    def _go_to(self, text):
-        """Obnoví stav z historie přes _apply (to postaví všechno znova).
-
-        Záložka zůstane, stopa se vybere podle pořadí (objekty jsou nový, tak
-        podle pořadí, ne podle objektu), a přehrávání jede dál od místa, kde bylo
-        (player.tick: _apply přehrávač jen zastaví, pozici nechá).
-        """
-        self._update_menu()
-        if text is None:
-            return                      # není kam jít
-        # zapamatovat si, co bylo vybraný, než se to celý přestaví
-        track = self.song_page.track
-        index = self.song.tracks.index(track) if track in self.song.tracks else 0
-        lane = self._lane_place()
-        playing = self.player.playing
-        self._apply(json.loads(text))
-        tracks = self.song.tracks
-        self.select_track(tracks[min(index, len(tracks) - 1)])   # min, kdyby stop teď bylo míň
-        self._show_lane(lane)
-        if playing:
-            self.player.play(from_tick=self.player.tick)
-            self._show_playing()
-
-    def _lane_place(self):
-        """Automatizace ukázaná na časový ose jako (pořadí vlastníka, popisek), nebo None.
-
-        Objekty se při obnovení vyrobí znova, takže si nejde pamatovat objekt,
-        ale pořadí a popisek zůstanou stejný.
-        """
-        owners = self.song_page.track.automated_owners()
-        if self.song_page.lane is None or self.song_page.lane[0] not in owners:
-            return None
-        owner, param = self.song_page.lane
-        return owners.index(owner), param.label
-
-    def _show_lane(self, place):
-        """Po obnovení zase ukáže tu samou automatizaci (pokud vlastník pořád existuje)."""
-        if place is None:
-            return
-        index, label = place
-        owners = self.song_page.track.automated_owners()
-        if index < len(owners):
-            for param in owners[index].PARAMS:
-                if param.label == label and not param.choices:
-                    self.song_page.lane = (owners[index], param)
-                    self.song_page.refresh()
-
     # --- smyčka ---
 
     def _on_tick(self, event):
@@ -377,10 +202,8 @@ class MainFrame(wx.Frame):
         now = time.monotonic()
         dt, self.last_time = now - self.last_time, now   # kolik reálně uběhlo od minula (timer není přesnej)
         self.ticks += 1
-        if self.ticks % SNAPSHOT_EVERY == 0:
-            self._snapshot()
-        if self.export is not None:
-            self._export_tick()
+        if self.ticks % AUTOSAVE_EVERY == 0:
+            self._autosave(self._capture())
         analyzer = self.engine.analyzer
         fresh = analyzer.update()        # fresh = je hotovej novej úsek zvuku?
         # kreslí se jen záložka, která je vidět, ať se zbytečně nepálí procesor
@@ -403,8 +226,6 @@ class MainFrame(wx.Frame):
         # úklid před zavřením, pořadí je důležitý: nejdřív zastavit tikání, uložit, pak vypínat zvuk
         self.timer.Stop()
         self._autosave(self._capture())
-        if self.export is not None:
-            self.export.cancel()         # dopsat soubor, než se server zastaví
         self.player.close()
         self.keys.close()
         if self.visual_page.fullscreen is not None:

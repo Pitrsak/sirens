@@ -2,9 +2,8 @@
 
 Řádek = jedna výška tónu (nahoře vysoký, dole hluboký), sloupec = jeden krok
 v čase, nota je obdélník: kde začíná = kdy zazní, jak je dlouhá = jak dlouho zní.
-Kolik kroků má takt, určuje mřížka patternu (16 = šestnáctiny, 12 nebo 24 = trioly),
-sloupce se jí přizpůsobí. Čísla nahoře (1.1, 1.2...) jsou vždycky doby
-(takt.doba, takt má 4 doby).
+Jeden krok = šestnáctinová nota, na takt jich je 16. Čísla nahoře (1.1, 1.2...)
+jsou vždycky doby (takt.doba, takt má 4 doby).
 
 Ovládání:
  - klik do prázdnýho místa přidá notu (a přehraje ji), tažením doprava se prodlouží
@@ -21,7 +20,7 @@ dělení velikostí jedný buňky.
 
 import wx
 
-from sirens.song import BEATS_PER_BAR, Note
+from sirens.song import BEATS_PER_BAR, STEPS_PER_BAR, Note
 from sirens.ui import theme
 from sirens.ui.keys import note_name
 
@@ -180,10 +179,10 @@ class PatternView(wx.Control):
                 gc.StrokeLine(LABEL_W, y + cell_h, w, y + cell_h)
 
         # sloupce: slabě každej krok, víc každá doba, nejvíc každej takt (v mřížce i v pruhu Vel)
-        per_beat = pattern.grid // BEATS_PER_BAR        # kroků na dobu: 4, 3 nebo 6
+        per_beat = STEPS_PER_BAR // BEATS_PER_BAR      # kroků na dobu: 16 / 4 = 4
         for step in range(pattern.steps() + 1):          # +1, ať je i čára na pravým konci
             x = LABEL_W + step * cell_w
-            strong = step % pattern.grid == 0            # začátek taktu
+            strong = step % STEPS_PER_BAR == 0           # začátek taktu
             gc.SetPen(wx.Pen(theme.TEXT_DIM if strong else theme.BORDER if step % per_beat == 0 else theme.GRID, 1))
             gc.StrokeLine(x, HEADER_H, x, grid_bottom)
             gc.StrokeLine(x, vel_top, x, h)

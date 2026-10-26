@@ -188,12 +188,6 @@ Velocity 0 znamená puštění klávesy.
 `addMidiEvent` vloží zprávu do pyo, jako by přišla z MIDI klávesnice. Proto klávesnice
 počítače a sekvencer nepotřebují žádnou zvláštní cestu do nástroje.
 
-#### Nahrávání (`engine.py:73-81`)
-
-`recordOptions(filename=path, fileformat=0, sampletype=1)` + `recstart()` začne zapisovat
-přesně to, co jde do reproduktorů, do souboru WAV (`fileformat=0`) s 24 bity na vzorek
-(`sampletype=1`). `recstop()` soubor dopíše. Používá to export písně (`export.py`, kapitola 20).
-
 ---
 
 ### `sirens/audio/instrument.py` — Instrument
@@ -398,9 +392,6 @@ Adjustable (param.py)
  └─ Block                       společný základ: slidery jako SigTo signály
      ├─ SourceBlock             zdroj: přičte svůj zvuk k flow
      │   ├─ OscillatorBlock     sinus / pila / obdélník / trojúhelník
-     │   ├─ SupersawBlock       7 rozladěných pil
-     │   ├─ FMBlock             frekvenční modulace
-     │   ├─ AdditiveBlock       7 sinusovek, harmonické nastavuješ ručně
      │   ├─ NoiseBlock          bílý šum
      │   └─ SamplerBlock        přehraje zvukový soubor
      └─ EffectBlock             efekt: zpracuje flow
@@ -408,7 +399,6 @@ Adjustable (param.py)
          ├─ ShaperBlock         vlastní křivka y = f(x) v tabulce
          │   ├─ DistortionBlock   tanh
          │   └─ BitcrushBlock     schody
-         ├─ ChorusBlock
          ├─ DelayBlock
          └─ ReverbBlock
 ```
@@ -470,7 +460,7 @@ a díky `SigTo` se mění plynule (30 ms), takže pohyb sliderem necvaká.
 - `connect(flow)` je v `Block` jen `raise NotImplementedError`: „tohle musí potomek napsat sám“.
 - `note()`, `extra()`, `load_extra()` dělají něco jen u Sampleru (jméno souboru, ukládání cesty).
 
-#### Zdroje: `SourceBlock` (`blocks.py:135-202`)
+#### Zdroje: `SourceBlock` (`blocks.py:135-208`)
 
 Společné slidery na výšku (`PITCH_PARAMS`, `blocks.py:111`) mají všechny zdroje kromě
 Noise a Sampleru: **Octave**, **Detune**, **Pitch drop**, **Drop time**. Plus **Level** (hlasitost).
@@ -553,40 +543,11 @@ dutý, trojúhelník mezi nimi. `LFO_TYPES = (7, 0, 2, 3)` jsou čísla těch tv
 `Brightness` je parametr `sharp` (jak ostrá je vlna). Tvar se nedá zadat signálem, jen číslem,
 proto se v `set` přepíná přímo `self.osc.type`.
 
-**SupersawBlock** (`blocks.py:239`): pyo `SuperSaw`, sedm pil lehce rozladěných proti sobě.
-Protože se navzájem rozcházejí, zvuk se vlní a je „tlustý“. `Spread` = jak moc rozladěné,
-`Center` = poměr prostřední pily k ostatním.
-
-**FMBlock** (`blocks.py:259`): frekvenční modulace. Jeden sinus (modulátor) rychle mění
-frekvenci druhého (nosná vlna = tvoje nota). `Ratio` = kolikrát rychleji kmitá modulátor než
-nota, `Index` = jak moc s výškou cloumá. Vzniknou tím nové frekvence kolem tónu: při celých
-Ratio to zní „hudebně“, jinak kovově (zvony, plechy).
-
-**AdditiveBlock** (`blocks.py:281`): aditivní syntéza, barvu tónu si skládáš sám ze sinusovek.
-
-```python
-self.partials = [Sine(freq=freq * n, mul=amp * self.values[f"Harmonic {n}"])
-                 for n in range(1, self.COUNT + 1)]
-total = self.partials[0]
-for partial in self.partials[1:]:
-    total = total + partial
-self.output = total * 0.4
-```
-
-Každý tón je ve skutečnosti součet sinusovek na násobcích základní frekvence f, 2f, 3f...
-(**harmonické**). Kolik je které, určuje barvu. Tady je jich 7, každá se svým sliderem.
-Výchozí hlasitosti jsou 1, 1/2, 1/3... (to dá přibližně pilu); když necháš jen liché
-(1, 3, 5, 7), vznikne skoro obdélník. Součet všech výchozích hlasitostí je asi 2,6, proto
-se na konci ztiší `* 0.4`. Tady operátory `*` a `+` používat jde, protože vlevo je vždycky
-nový objekt tohoto bloku (viz pravidla níž).
-
-`range(1, self.COUNT + 1)` = čísla 1 až 7. `f"Harmonic {n}"` je f-string (do textu se dosadí n).
-
-**NoiseBlock** (`blocks.py:309`): bílý šum, náhodná čísla. Šum není tón: nemá výšku, obsahuje
+**NoiseBlock** (`blocks.py:239`): bílý šum, náhodná čísla. Šum není tón: nemá výšku, obsahuje
 všechny frekvence naráz a zní jako „šššš“. Výška noty ho nezajímá, používá jen obálku
 (kdy a jak hlasitě). S filtrem dělá vítr, hi-hat, šumění.
 
-**SamplerBlock** (`blocks.py:326`): přehraje zvukový soubor při každé notě.
+**SamplerBlock** (`blocks.py:256`): přehraje zvukový soubor při každé notě.
 
 ```python
 speed = Max(self.instrument.pitch, 1) / ROOT_HZ * self.shift
@@ -605,13 +566,13 @@ přehrávání se řídí délkou `dur`:
 - Sampler používá jen `Level`, ne obálku nástroje. Soubor hraje celý, puštění klávesy ho
   neutne (dobré pro bicí).
 
-`load(path)` (`blocks.py:363`): načte nový soubor, postaví **nový** přehrávač a nechá rack
+`load(path)` (`blocks.py:293`): načte nový soubor, postaví **nový** přehrávač a nechá rack
 znovu propojit. Nepoužívá se výměna tabulky ve starém přehrávači (`setTable`), protože ta by
 mohla smazat starý zvuk, zatímco ho zvukové vlákno čte. Prázdný Sampler má 0,1 s ticha
 (`NewTable(0.1)`). Volá ho tlačítko **Load** a při otevření projektu `load_extra`
 (jen když soubor pořád existuje: `Path(...).exists()`).
 
-#### Efekty: `EffectBlock` (`blocks.py:388-400`)
+#### Efekty: `EffectBlock` (`blocks.py:318-335`)
 
 ```python
 def connect(self, flow):
@@ -625,11 +586,11 @@ Efekt zpracuje, co přitéká. Když nic nepřitéká, nic nevydá. Konkrétní 
 **Dva druhy efektů:**
 
 - **Filter, Distortion, Bitcrush** zpracují 8 hlasů zvlášť (výsledek má zase 8 hlasů).
-- **Chorus, Delay, Reverb** nejdřív udělají `Mix(flow, voices=1)` a pracují s jedním signálem.
+- **Delay a Reverb** nejdřív udělají `Mix(flow, voices=1)` a pracují s jedním signálem.
   Důvod: ozvěna nebo dozvuk má být jeden pro všechny noty (jinak 8x víc počítání),
   a u ozvěny noty stejně doznívají přes sebe.
 
-#### FilterBlock (`blocks.py:406-449`)
+#### FilterBlock (`blocks.py:336-381`)
 
 Filtr nechá projít jen část frekvencí: **Low-pass** propustí hloubky (zvuk ztmavne),
 **High-pass** výšky (zvuk zeslábne, zprůhlední), **Band-pass** jen pásmo kolem Cutoff.
@@ -656,11 +617,11 @@ return SVF(flow, freq=self.cutoff, q=self.values["Resonance"], type=self.mode)
 2. **Envelope**: `opening = 1 + Envelope * 8 * obálka`. Při stisku obálka vyskočí k 1 a filtr
    se otevře až 9x výš, pak se s obálkou zase zavře. Tak vzniká „pluck“ nebo „wah“.
    Funguje jen, když má flow stejný počet hlasů jako obálka (`len(flow) == len(envelope)`),
-   tedy když nad filtrem není Chorus/Delay/Reverb, který hlasy sečetl. Každá nota má pak
+   tedy když nad filtrem není Delay/Reverb, který hlasy sečetl. Každá nota má pak
    vlastní filtr se svou obálkou.
 3. `Clip(cutoff, 20, 18000)`: pojistka, ať se hraniční frekvence nedostane mimo rozumný rozsah.
 
-#### ShaperBlock: vlastní křivka (`blocks.py:452-487`)
+#### ShaperBlock: vlastní křivka (`blocks.py:382-419`)
 
 Tohle je **naše vlastní zpracování signálu** (waveshaping). Každý vzorek x (číslo -1..1)
 projde funkcí y = curve(x), kterou si počítáme sami.
@@ -687,7 +648,7 @@ def process(self, flow):
 - Když se pohne sliderem, který mění tvar (`SHAPE`), tabulka se přepočítá (`set`).
 - `curve` je v ShaperBlock jen `raise NotImplementedError`, konkrétní křivku dodají potomci.
 
-**DistortionBlock** (`blocks.py:490`):
+**DistortionBlock** (`blocks.py:420`):
 
 ```python
 return math.tanh(drive * x) / math.tanh(drive)
@@ -700,7 +661,7 @@ zajistí, že x = 1 dá zase přesně 1 (maximální hlasitost se nezmění).
 Příklad pro Drive 5: x = 0,2 dá tanh(1)/tanh(5) ≈ 0,76. Tichá místa vlny se hodně zesílí,
 hlasitá narazí na strop.
 
-**BitcrushBlock** (`blocks.py:507`):
+**BitcrushBlock** (`blocks.py:437`):
 
 ```python
 levels = 2 ** round(bits) / 2
@@ -711,12 +672,10 @@ Snížení bitové hloubky: vlna smí mít jen pár povolených úrovní, každ�
 na nejbližší. Z hladké vlny jsou schody, zní to rozbitě a digitálně. Bits 4: `levels` = 8 úrovní
 na každou stranu od nuly, takže povolené hodnoty jsou -1, -7/8, ..., 0, ..., 7/8, 1.
 
-#### Chorus, Delay, Reverb (`blocks.py:523-571`)
+#### Delay a Reverb (`blocks.py:453-489`)
 
-Všechny tři nejdřív sečtou hlasy (`Mix(flow, voices=1)`) a pak použijí hotový pyo efekt:
+Oba nejdřív sečtou hlasy (`Mix(flow, voices=1)`) a pak použijí hotový pyo efekt:
 
-- **Chorus**: několik lehce zpožděných kopií, jejichž zpoždění se pomalu houpe (tím se jim
-  trochu mění výška). Zvuk je širší, jako víc hráčů naráz. `bal` = poměr původní / kopie.
 - **Delay**: ozvěna. `Delay` zpozdí zvuk o `Time` a část výstupu (`Feedback`) pošle zpátky
   na vstup, takže se ozvěna opakuje a pokaždé je slabší. Feedback max 0,95 (při 1 by nikdy
   neutichla). `maxdelay=2` = Delay si připraví paměť na 2 s, proto Time jde max do 2.
@@ -724,7 +683,7 @@ Všechny tři nejdřív sečtou hlasy (`Mix(flow, voices=1)`) a pak použijí ho
 - **Reverb** (`Freeverb`): dozvuk místnosti, hustá síť odrazů, které doznívají. `Size` = velikost
   místnosti (délka dozvuku), `Damping` = jak rychle v dozvuku mizí výšky.
 
-#### `CATALOG` (`blocks.py:574`)
+#### `CATALOG` (`blocks.py:490`)
 
 Seznam tříd bloků v pořadí, v jakém jsou v menu **Add block**. UI mezi poslední zdroj a první
 efekt vloží čáru (podle `IS_SOURCE`). Ukládání (`session.py`) z něj dělá slovník
@@ -745,7 +704,7 @@ protože vypadají „divně“.
    zahodí, výsledek by u `a` visel dál, četl smazanou paměť (pád) a s každou přestavbou by
    jich přibývalo (zpomalování). Proto se píše `Sig(a, mul=b)`: nový objekt, který patří
    bloku a zahodí se s ním. Operátory jsou v kódu jen tam, kde vlevo je nový objekt
-   (`AdditiveBlock`, `DelayBlock`) nebo kde oba žijí stejně dlouho (`engine.py`, `instrument.py`).
+   (`DelayBlock`) nebo kde oba žijí stejně dlouho (`engine.py`, `instrument.py`).
 2. **`retired` v `Instrument.play` a `AudioEngine.play`.** Zásuvka 50 ms prolíná ze starého
    zvuku, ale Python odkaz drží jen na nový. Poslední čtyři staré zvuky si proto necháme.
 3. **`keep()` u tabulek.** Tabulky se nikdy nemažou (seznam `TABLES`), protože čtenář
@@ -763,20 +722,19 @@ Tady kód zvuk opravdu počítá sám, nejen skládá hotové efekty knihovny:
 
 | Kde | Co počítáme sami |
 |---|---|
-| `ShaperBlock._draw_curve`, `blocks.py:475` | přenosová křivka y = f(x) pro každý vzorek, počítaná v Pythonu do tabulky 4096 bodů |
-| `DistortionBlock.curve`, `blocks.py:501` | zkreslení funkcí tanh s normalizací, aby se nezměnila maximální hlasitost |
-| `BitcrushBlock.curve`, `blocks.py:518` | kvantování (zaokrouhlení) vzorku na 2^bits úrovní |
+| `ShaperBlock._draw_curve`, `blocks.py:405` | přenosová křivka y = f(x) pro každý vzorek, počítaná v Pythonu do tabulky 4096 bodů |
+| `DistortionBlock.curve`, `blocks.py:431` | zkreslení funkcí tanh s normalizací, aby se nezměnila maximální hlasitost |
+| `BitcrushBlock.curve`, `blocks.py:448` | kvantování (zaokrouhlení) vzorku na 2^bits úrovní |
 | `drop_curve`, `blocks.py:124` | exponenciální křivka poklesu výšky, upravená, aby končila přesně v 0 |
 | `SourceBlock.freq`, `_ratio`, `_amount` | výpočet frekvence každého hlasu: nota * 2^(oktáva + centy/1200) * (1 + amount * křivka) |
-| `AdditiveBlock` | vlastní aditivní syntéza: tón složený ze 7 sinusovek na násobcích f |
 | `SamplerBlock._build` | změna výšky vzorku přes rychlost přehrávání: dur = délka / (f / f_C4 * 2^(posun/12)) |
 | `FilterBlock.process` | vlastní modulace hraniční frekvence: Cutoff * (1 + Wobble * sin) * (1 + 8 * Envelope * obálka), zvlášť pro každou notu |
 | `SourceBlock.connect`, `Rack.changed` | vlastní směrování signálu: sčítání hlasů zdrojů se zachováním polyfonie, řetězení efektů |
 | `AudioEngine` | ochranný ořez -1..1 a míchání stop |
 
-Hotové z pyo jsou oscilátory (LFO, SuperSaw, FM, Sine, Noise), filtr SVF a efekty Chorus,
-Delay a Freeverb. To je v pořádku, ale u zkoušky ukazuj hlavně na ShaperBlock (tam je
-matematika celá naše) a na výpočty frekvence a cutoffu.
+Hotové z pyo jsou oscilátory (LFO, Sine, Noise), filtr SVF a efekty Delay a Freeverb.
+To je v pořádku, ale u zkoušky ukazuj hlavně na ShaperBlock (tam je matematika celá naše)
+a na výpočty frekvence a cutoffu.
 
 ---
 
@@ -821,7 +779,7 @@ zásuvka ještě 50 ms prolíná, protože Python by je jinak hned smazal.
 Přehraje ho rychleji nebo pomaleji: `dur = délka souboru / (frekvence noty / 261,63 * posun)`.
 Na C4 v původní délce, o oktávu výš za poloviční čas, a tím o oktávu výš.
 
-**9. Proč Chorus, Delay a Reverb sčítají hlasy, ale Filter ne?**
+**9. Proč Delay a Reverb sčítají hlasy, ale Filter ne?**
 Filtr má mít pro každou notu vlastní obálku (Envelope otevírá filtr při každém stisku), takže
 zpracuje 8 hlasů zvlášť. Ozvěna a dozvuk stačí jedna pro všechny noty a ušetří to výpočet.
 
@@ -857,7 +815,6 @@ se můžou posunout):
 | `sirens/ui/keys.py`, `note_on` / `note_off` | `engine.send_note` z klávesnice počítače |
 | `sirens/ui/song_page.py` | `engine.send_note` při kliknutí do piano rollu (krátká ukázka noty) |
 | `sirens/audio/player.py` | `engine.send_note` při přehrávání písně; `owner.set` pro automatizaci sliderů |
-| `sirens/audio/export.py` | `engine.start_recording` / `stop_recording` při exportu WAV |
 | `sirens/session.py` | ukládání: `block.get`, `block.extra()`, `block.enabled`; načítání: `rack.add`, `block.set`, `block.load_extra`, nakonec `rack.changed()` |
 | `sirens/audio/analyzer.py` | dostává `engine.source` (součet stop před Master) |
 | `sirens/ui/timeline_view.py` | zapisuje do `block.automation` / `instrument.automation` |

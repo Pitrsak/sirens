@@ -50,7 +50,7 @@ Abecedně. Podrobnější vysvětlení je v kapitole v závorce.
 
 **Frekvence (Hz)** — kolikrát za sekundu se vlna opakuje = jak vysoko tón zní. (01)
 
-**Grid (mřížka)** — kolik kroků má takt v patternu: 16, 12 nebo 24 (trioly). (20)
+**Grid (mřížka)** — dělení taktu v patternu; v Sirens pevně 16 kroků na takt (šestnáctiny). (20)
 
 **Hann (okno)** — křivka, kterou se před DFT ztlumí kraje úseku. (30)
 
@@ -62,7 +62,7 @@ Abecedně. Podrobnější vysvětlení je v kapitole v závorce.
 
 **Komentář** — text za `#`, Python ho ignoruje, je pro lidi. (01)
 
-**Lambda** — malá funkce bez jména (`lambda: self.undo()`). (01)
+**Lambda** — malá funkce bez jména (`lambda: self._select_tab("Song")`). (01)
 
 **Layer (vrstva)** — jeden díl obrazu: tvar nebo efekt. (30)
 
@@ -117,8 +117,6 @@ Abecedně. Podrobnější vysvětlení je v kapitole v závorce.
 **UDP** — síťový protokol: pošli paket a nečekej na potvrzení. (30)
 
 **uint8 / float32** — typ čísel v poli: celá 0..255 (zobrazení) / desetinná (výpočty). (30)
-
-**Undo / Redo** — vrátit / znovu provést změnu; snímky stavu v `history.py`. (20)
 
 **Universe** — jedna sada 512 DMX kanálů; Art-Net jich umí víc. (30)
 

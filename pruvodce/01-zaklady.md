@@ -33,8 +33,8 @@ current = None        # "nic", ještě nic není nastavené
 Jména VELKÝMI PÍSMENY jsou **konstanty**: nastaví se jednou nahoře v souboru a nemění se.
 Je to jen zvyk, Python je nehlídá.
 
-Zápis `def play(self, from_tick: int | None = None)` obsahuje **typové nápovědy**
-(`: int`, `-> float`). Python je ignoruje, jsou jen pro čtenáře: „sem patří celé číslo nebo None“.
+Zápis `def _tick_time(self) -> float` obsahuje **typové nápovědy**
+(`-> float`). Python je ignoruje, jsou jen pro čtenáře: „vrací desetinné číslo“.
 
 ### Seznam, slovník, množina, n-tice
 
@@ -42,7 +42,7 @@ Zápis `def play(self, from_tick: int | None = None)` obsahuje **typové nápov�
 self.items = []                         # seznam (list): seřazené prvky, dají se měnit
 self.patterns = {"A": Pattern(), ...}   # slovník (dict): klíč -> hodnota
 self.active = set()                     # množina (set): bez pořadí, každý prvek jen jednou
-GRIDS = (16, 12, 24)                    # n-tice (tuple): jako seznam, ale nejde měnit
+BAR_CHOICES = (1, 2, 4)                 # n-tice (tuple): jako seznam, ale nejde měnit
 ```
 
 **Comprehension** = krátký zápis cyklu, který vyrobí seznam nebo slovník:
@@ -228,8 +228,8 @@ Objekty, které Sirens používá nejčastěji:
 | `Mix(seznam, voices=1)` | sečte víc signálů do jednoho |
 | `InputFader(signal)` | „zásuvka“: vstup jde vyměnit za jiný s krátkým prolnutím (`setInput`) |
 | `Notein`, `MidiAdsr` | přijímá MIDI noty, obálka noty (viz kapitola 10) |
-| `Sine`, `SuperSaw`, `FM`, `Noise`, `SndTable` | zdroje zvuku |
-| `SVF`, `Delay`, `Chorus`, `Freeverb`, `Clip`, `Lookup` | úpravy zvuku |
+| `Sine`, `Noise`, `SndTable` | zdroje zvuku |
+| `SVF`, `Delay`, `Freeverb`, `Clip`, `Lookup` | úpravy zvuku |
 | `DataTable`, `NewTable` | tabulka čísel v paměti (křivka, nahraný zvuk) |
 | `TableRec` | nahrává signál do tabulky (pro analýzu) |
 

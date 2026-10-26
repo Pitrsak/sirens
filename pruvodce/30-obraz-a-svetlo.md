@@ -15,7 +15,7 @@ Soubory, o kterých to tu je:
 |---|---|
 | `sirens/audio/analyzer.py` | nahrává kousky zvuku a počítá z nich spektrum (vlastní DFT), tvar vlny, hlasitost a sílu pásem |
 | `sirens/visual/features.py` | z analyzátoru vybere, co potřebuje obraz, převede to na čísla 0..1 a detekuje údery (beat) |
-| `sirens/visual/layers.py` | jednotlivé vrstvy obrazu: tvary (Ring, Wave, Bars, ...) a efekty (Feedback, Mirror, Glow, ...) |
+| `sirens/visual/layers.py` | jednotlivé vrstvy obrazu: tvary (Ring, Particles) a efekty (Feedback, Mirror, Glow, Warp) |
 | `sirens/visual/painter.py` | každý snímek projde vrstvy a složí z nich výsledný obrázek |
 | `sirens/light/rig.py` | z basů, středů a výšek udělá barvu světla a hodnoty DMX kanálů |
 | `sirens/light/artnet.py` | zabalí DMX hodnoty do síťového paketu Art-Net a pošle je přes UDP |
@@ -41,8 +41,8 @@ Soubory, o kterých to tu je:
         v                               v
   Painter  (painter.py)           ArtNetSender  (artnet.py)
   projde vrstvy shora dolů        hlavička Art-Net + 512 bajtů
-  (layers.py: Ring, Wave, ...,              |
-   Feedback, Glow, Tint, ...)               v
+  (layers.py: Ring, Particles,                 |
+   Feedback, Mirror, Glow, Warp)              v
         |                         UDP paket na port 6454
         v                                   |
   pole 360 x 640 x 3 (0..255)               v
@@ -217,7 +217,7 @@ Vlna tak začíná pořád ve stejné fázi a stojí na místě, stejně jako na
 
 ### Logaritmické spektrum (features.py:31 a :41)
 
-Analyzátor má koše po 21,5 Hz, rovnoměrně. Ucho ale slyší **logaritmicky**: rozdíl 100 -> 200 Hz (oktáva) zní stejně velký jako 1000 -> 2000 Hz. Kdyby Ring nebo Bars kreslily koše rovnoměrně, basy by se nacpaly do pár bodů úplně vlevo a zbytek by byly výšky. Proto:
+Analyzátor má koše po 21,5 Hz, rovnoměrně. Ucho ale slyší **logaritmicky**: rozdíl 100 -> 200 Hz (oktáva) zní stejně velký jako 1000 -> 2000 Hz. Kdyby Ring kreslil koše rovnoměrně, basy by se nacpaly do pár bodů úplně vlevo a zbytek by byly výšky. Proto:
 
 ```python
 self.freqs = np.geomspace(40, 12000, SPECTRUM_POINTS)     # features.py:31
@@ -259,13 +259,13 @@ Krok po kroku:
 Než se pustíme do vrstev, je potřeba vědět, co je obrázek pro počítač.
 
 - **Pixel** je jeden bod obrazu. Má tři čísla: kolik červené (R), zelené (G) a modré (B). Smícháním světla těchhle tří barev vznikne jakákoli barva (R+G = žlutá, všechny tři naplno = bílá, nic = černá).
-- Celý obrázek je **trojrozměrné numpy pole** tvaru `výška x šířka x 3`. U nás `WIDTH, HEIGHT = 640, 360` (layers.py:26), takže pole má tvar `(360, 640, 3)`: 360 řádků, v každém 640 pixelů, v každém 3 čísla. Pozor na pořadí: **nejdřív řádek (y), pak sloupec (x)**. `canvas[10, 20]` je pixel v 11. řádku a 21. sloupci (indexuje se od 0), `canvas[10, 20, 0]` je jeho červená složka.
+- Celý obrázek je **trojrozměrné numpy pole** tvaru `výška x šířka x 3`. U nás `WIDTH, HEIGHT = 640, 360` (layers.py:25), takže pole má tvar `(360, 640, 3)`: 360 řádků, v každém 640 pixelů, v každém 3 čísla. Pozor na pořadí: **nejdřív řádek (y), pak sloupec (x)**. `canvas[10, 20]` je pixel v 11. řádku a 21. sloupci (indexuje se od 0), `canvas[10, 20, 0]` je jeho červená složka.
 - Osa **y roste dolů**: řádek 0 je nahoře. Proto se ve vzorcích občas objeví minus.
 - **Dva formáty čísel:**
   - `uint8` (celé číslo bez znaménka, 8 bitů) = 0..255. Tak se obrázky ukládají a zobrazují. 255 je plná barva.
   - `float32` (desetinné číslo) = my používáme 0..1. Na tomhle se líp počítá: dá se násobit, sčítat a nic „nepřeteče“ dokola jako u `uint8`, kde 250 + 10 dá 4.
   Painter si drží obraz ve `float32` 0..1 a teprve na konci ho převede na `uint8` 0..255.
-- **RGB, ne BGR.** OpenCV běžně ukládá barvy v pořadí B, G, R (třeba když načítá obrázek přes `cv2.imread` nebo ukazuje přes `cv2.imshow`). My ale z OpenCV používáme jen kreslicí funkce a efekty, a těm je jedno, co který kanál znamená: barvu jim prostě dáme jako tři čísla a ony je zapíšou do kanálů 0, 1, 2. My jsme se rozhodli, že kanál 0 = R, 1 = G, 2 = B, protože přesně v tomhle pořadí to chce `wx.Bitmap.FromBuffer`, který obraz zobrazí v okně. Proto `Layer.colour()` vrací `(R, G, B)` a v RGB Split je kanál 0 červená.
+- **RGB, ne BGR.** OpenCV běžně ukládá barvy v pořadí B, G, R (třeba když načítá obrázek přes `cv2.imread` nebo ukazuje přes `cv2.imshow`). My ale z OpenCV používáme jen kreslicí funkce a efekty, a těm je jedno, co který kanál znamená: barvu jim prostě dáme jako tři čísla a ony je zapíšou do kanálů 0, 1, 2. My jsme se rozhodli, že kanál 0 = R, 1 = G, 2 = B, protože přesně v tomhle pořadí to chce `wx.Bitmap.FromBuffer`, který obraz zobrazí v okně. Proto `Layer.colour()` vrací `(R, G, B)`.
 - **Užitečné numpy zápisy pro obraz:**
   - `canvas[:, 320:]` = všechny řádky, sloupce od 320 dál (pravá půlka). `:` znamená „všechno“.
   - `pole[::-1]` = pozpátku. `canvas[:, ::-1]` převrátí sloupce (zrcadlo zleva doprava).
@@ -276,7 +276,7 @@ Než se pustíme do vrstev, je potřeba vědět, co je obrázek pro počítač.
 
 ## 4. `sirens/visual/layers.py`: vrstvy obrazu
 
-### Základ: třída `Layer` (layers.py:56)
+### Základ: třída `Layer` (layers.py:55)
 
 Vrstva je kus kódu, který dostane obraz (`canvas`) a čísla o zvuku (`f`, objekt `Features`) a vrátí upravený obraz. Uživatel si vrstvy skládá pod sebe v záložce Visual (*Add layer*), stejně jako bloky zvuku.
 
@@ -284,7 +284,7 @@ Vrstva je kus kódu, který dostane obraz (`canvas`) a čísla o zvuku (`f`, obj
 - `NAME` je jméno v menu (a v uloženém souboru), `IS_SOURCE` říká, jestli je to tvar (kreslí) nebo efekt (mění obraz), `POST` má jen Glow (viz dál), `enabled` je vypnutí/zapnutí.
 - `apply(canvas, f)` musí každá vrstva napsat po svém. V `Layer` jen vyhodí `NotImplementedError` („tohle musí udělat potomek“).
 
-**Reakce na zvuk, `drive()` (layers.py:62).** Skoro každá vrstva má dva slidery z `react_params()`: *React to* (None, Level, Bass, Mid, High, Beat) a *Reaction* (0..2).
+**Reakce na zvuk, `drive()` (layers.py:61).** Skoro každá vrstva má dva slidery z `react_params()`: *React to* (None, Level, Bass, Mid, High, Beat) a *Reaction* (0..2).
 
 ```python
 source = REACT[round(self.settings["React to"])]     # číslo -> jméno, třeba 2 -> "Bass"
@@ -295,9 +295,9 @@ return signal * self.settings["Reaction"]
 
 Výběr (Choice) se ukládá jako pořadové číslo, takže `REACT[...]` z něj udělá jméno. Pak se ze **slovníku** (dict, dvojice klíč -> hodnota) vybere odpovídající číslo 0..1 a vynásobí se *Reaction*. Výsledek je 0..2. Vrstvy ho pak používají skoro vždycky jako `(1 + drive)`: bez zvuku je to 1 (normální velikost), při plných basech a Reaction 2 je to 3 (trojnásobek).
 
-**Barva, `colour()` (layers.py:73).** Barva se nastavuje jako odstín na barevném kole (0 = červená, 120 = zelená, 240 = modrá) a jas. Tomu se říká **HSV** (hue = odstín, saturation = sytost, value = jas). Standardní modul `colorsys` to převede na RGB 0..1, my to vynásobíme 255, protože OpenCV kreslí do 8bitové vrstvy. `% 360` přetočí odstín dokola (370 = 10), `hue_shift` umožňuje dát každému sloupci nebo kolečku trochu jiný odstín.
+**Barva, `colour()` (layers.py:72).** Barva se nastavuje jako odstín na barevném kole (0 = červená, 120 = zelená, 240 = modrá) a jas. Tomu se říká **HSV** (hue = odstín, saturation = sytost, value = jas). Standardní modul `colorsys` to převede na RGB 0..1, my to vynásobíme 255, protože OpenCV kreslí do 8bitové vrstvy. `% 360` přetočí odstín dokola (370 = 10), `hue_shift` umožňuje dát každému sloupci nebo kolečku trochu jiný odstín.
 
-**Míchání vrstev, `blend()` (layers.py:46).**
+**Míchání vrstev, `blend()` (layers.py:45).**
 
 ```python
 canvas += layer8.astype(np.float32) * (1 / 255)      # layers.py:52
@@ -314,12 +314,11 @@ Použité kreslicí funkce OpenCV:
 | Funkce | Co dělá |
 |---|---|
 | `cv2.polylines(obr, [body], uzavřená, barva, tloušťka, cv2.LINE_AA)` | lomená čára přes seznam bodů `(x, y)`; `True` = spojí poslední bod s prvním |
-| `cv2.rectangle(obr, (x0, y0), (x1, y1), barva, -1)` | obdélník mezi dvěma rohy; tloušťka `-1` = vyplněný |
 | `cv2.circle(obr, (x, y), poloměr, barva, -1, cv2.LINE_AA)` | kruh; `-1` = vyplněný |
 
 Souřadnice musí být celá čísla, proto se body převádějí `.astype(np.int32)` nebo `int(...)`.
 
-**Ring (layers.py:90)**: uzavřená křivka kolem středu, jejíž poloměr v každém úhlu dává spektrum.
+**Ring (layers.py:89)**: uzavřená křivka kolem středu, jejíž poloměr v každém úhlu dává spektrum.
 
 ```python
 levels = np.concatenate([f.spectrum, f.spectrum[::-1]])                    # 96 bodů + tytéž pozpátku = 192
@@ -334,18 +333,7 @@ points = np.stack([WIDTH / 2 + radius * np.cos(angles),
 - Poloměr = základ (`Size` krát výška obrazu, při zvuku až dvojnásobek) + kus podle spektra. Příklad: Size 0,2 dá 72 px, plné spektrum se Spectrum 0,5 přidá 0,125 * 360 = 45 px.
 - Z úhlu a poloměru na pixely: `x = střed + r * cos(úhel)`, `y = střed + r * sin(úhel)` (**polární souřadnice** -> kartézské). `np.stack(..., axis=1)` poskládá x a y vedle sebe do tabulky 192 x 2.
 
-**Wave (layers.py:121)**: tvar vlny přes celou šířku, jako osciloskop.
-
-```python
-x = np.linspace(0, WIDTH - 1, len(f.wave))
-y = HEIGHT * s["Position"] - f.wave * HEIGHT * s["Height"] * (1 + self.drive(f))
-```
-
-512 vzorků se rozloží rovnoměrně přes 640 pixelů. `Position` určuje středovou čáru (0,5 = prostředek). Kladný vzorek má jít nahoru, a protože y roste dolů, je tam minus. Čára se nezavírá (`False`).
-
-**Bars (layers.py:146)**: sloupce spektra. Vybere se `Count` bodů ze spektra (`np.linspace(...).astype(int)` dá rovnoměrně rozložené indexy), výška sloupce = hodnota spektra * výška obrazu * `Height` * `(1 + drive)`. Pro každý sloupec se spočítá levý a pravý okraj (s mezerou 1 px) a horní a dolní okraj podle `Place` (od spodku, nebo od prostředka na obě strany), a nakreslí se vyplněný obdélník. Odstín se zleva doprava posouvá až o 60 stupňů.
-
-**Particles (layers.py:176)**: částice, které vyletují ze středu a hasnou. Je to malá **částicová simulace**, celá v numpy:
+**Particles (layers.py:120)**: částice, které vyletují ze středu a hasnou. Je to malá **částicová simulace**, celá v numpy:
 
 - Každá částice má polohu (`self.pos`, tabulka N x 2), rychlost (`self.vel`, posun v pixelech za snímek) a „život“ = jas (`self.life`, 1 -> 0).
 - Kolik se jich narodí: `Amount * 40 * drive`, ale nejvýš do stropu `MAX = 800`. Když *React to* je None, `drive` je natvrdo 0,5 (stálý proud).
@@ -353,21 +341,13 @@ y = HEIGHT * s["Position"] - f.wave * HEIGHT * s["Height"] * (1 + self.drive(f))
 - Každý snímek: `pos = pos + vel` (pohyb), `life = life * Life` (při 0,95 o 5 % tmavší), a ty s `life <= 0.05` se zahodí přes masku `alive`.
 - Každá živá částice je vyplněný kruh v barvě vynásobené jejím `life`.
 
-**Orbit (layers.py:225)**: kolečka obíhající kolem středu.
-
-```python
-angle = f.time * s["Speed"] * 2 * math.pi + i * 2 * math.pi / count
-```
-
-První část otáčí s časem (`Speed` = otáček za sekundu, 2π = jedna otáčka), druhá rozestaví `count` koleček rovnoměrně dokola. Poloha je zase `střed + r * cos/sin`. Se zvukem roste dráha (až na dvojnásobek) i velikost koleček.
-
 ### Efekty (mění to, co už je nakreslené)
 
-**Feedback (layers.py:256)**: obrazový „dozvuk“. Starý snímek se trochu zvětší, pootočí a ztmaví a nové tvary se kreslí přes něj. Starší tvary tak odplouvají do stran a hasnou, vypadá to jako tunel.
+**Feedback (layers.py:169)**: obrazový „dozvuk“. Starý snímek se trochu zvětší, pootočí a ztmaví a nové tvary se kreslí přes něj. Starší tvary tak odplouvají do stran a hasnou, vypadá to jako tunel.
 
 ```python
-matrix = cv2.getRotationMatrix2D((WIDTH / 2, HEIGHT / 2), s["Spin"], zoom)     # :275
-canvas = cv2.warpAffine(canvas, matrix, (WIDTH, HEIGHT))                       # :277
+matrix = cv2.getRotationMatrix2D((WIDTH / 2, HEIGHT / 2), s["Spin"], zoom)     # :188
+canvas = cv2.warpAffine(canvas, matrix, (WIDTH, HEIGHT))                       # :190
 return canvas * s["Fade"]
 ```
 
@@ -376,7 +356,7 @@ return canvas * s["Fade"]
 - `* Fade` ztmaví. Při Fade 0,9 je tvar po 22 snímcích (~0,7 s) jen na 10 % jasu.
 - Aby to fungovalo, Painter musí na začátku snímku vzít **minulý** obraz místo černého. To dělá, jen když je v seznamu zapnutá vrstva Feedback (viz Painter). Proto má Feedback být nahoře.
 
-**Mirror (layers.py:281)**: zrcadlení, čistě naše operace s polem.
+**Mirror (layers.py:194)**: zrcadlení, čistě naše operace s polem.
 
 ```python
 canvas[:, WIDTH // 2:] = canvas[:, :WIDTH // 2][:, ::-1]     # levá půlka obráceně vpravo
@@ -385,20 +365,20 @@ canvas[HEIGHT // 2:] = canvas[:HEIGHT // 2][::-1]           # horní půlka obr�
 
 `//` je celočíselné dělení (640 // 2 = 320). Vezmeme levou polovinu, obrátíme pořadí sloupců a zapíšeme ji do pravé poloviny. Stejně pro řádky. Režim Both udělá obojí, takže z jedné čtvrtiny vznikne celý souměrný obraz.
 
-**Glow (layers.py:297)**: záře kolem světlých míst.
+**Glow (layers.py:210)**: záře kolem světlých míst.
 
 ```python
-return cv2.GaussianBlur(canvas, (0, 0), s["Radius"]) * s["Amount"] * (1 + self.drive(f))   # :320
+return cv2.GaussianBlur(canvas, (0, 0), s["Radius"]) * s["Amount"] * (1 + self.drive(f))   # :233
 ```
 
 `cv2.GaussianBlur` obraz rozmaže: každý pixel nahradí váženým průměrem svého okolí, kde bližší pixely mají větší váhu (váhy mají tvar zvonu, Gaussovy křivky). `Radius` je šířka toho zvonu (sigma), `(0, 0)` znamená „velikost okolí si dopočítej sám“. Rozmazaná kopie se zesílí a **přičte** navrch, takže světlé věci „svítí do okolí“.
 
 Glow má `POST = True`: jeho záře se přidá jen k tomu, co se ukáže na obrazovce, ale **ne** do paměti obrazu, ze které vychází Feedback. Jinak by se záře přičítala každý snímek znovu a znovu a za chvíli by byl celý obraz bílý. Glow proto nemá `apply`, ale `halo`, a Painter s ním zachází zvlášť.
 
-**Warp (layers.py:323)**: vlnění obrazu.
+**Warp (layers.py:236)**: vlnění obrazu.
 
 ```python
-self.xs, self.ys = np.meshgrid(np.arange(WIDTH, dtype=np.float32), np.arange(HEIGHT, dtype=np.float32))  # :338
+self.xs, self.ys = np.meshgrid(np.arange(WIDTH, dtype=np.float32), np.arange(HEIGHT, dtype=np.float32))  # :251
 dx = amount * np.sin(2 * np.pi * s["Waves"] * self.ys / HEIGHT + phase)
 dy = amount * np.sin(2 * np.pi * s["Waves"] * self.xs / WIDTH + phase * 1.3)
 return cv2.remap(canvas, self.xs + dx, self.ys + dy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
@@ -408,37 +388,7 @@ return cv2.remap(canvas, self.xs + dx, self.ys + dy, cv2.INTER_LINEAR, borderMod
 - `dx` (vodorovný posun) se mění se sinusem podle řádku, `dy` podle sloupce. `phase` roste s časem, takže se vlny pohybují.
 - `cv2.remap(obraz, mapa_x, mapa_y, ...)` postaví nový obraz tak, že pixel `[y, x]` vezme z místa `[mapa_y[y, x], mapa_x[y, x]]` původního. Když to místo padne mezi pixely, `INTER_LINEAR` dopočítá barvu z okolních čtyř. `BORDER_REFLECT` = když bychom brali z místa mimo obraz, vezme se zrcadlově zevnitř, aby na krajích nebyly černé díry.
 
-**RGB Split (layers.py:352)**: glitch efekt, rozjeté barvy.
-
-```python
-canvas[..., 0] = np.roll(canvas[..., 0], shift, axis=1)      # červená doprava
-canvas[..., 2] = np.roll(canvas[..., 2], -shift, axis=1)     # modrá doleva
-```
-
-`np.roll` posune pole o `shift` míst podél osy 1 (sloupce, tedy vodorovně) a co vyjede na jednom konci, vrátí se na druhém. Červený kanál jde doprava, modrý doleva, zelený zůstane. Bílé tvary tak dostanou červený a modrý okraj. Se zvukem až pětinásobný posun.
-
-**Pixelate (layers.py:367)**: zhrubnutí na čtverečky.
-
-```python
-small = cv2.resize(canvas, (WIDTH // size, HEIGHT // size), interpolation=cv2.INTER_AREA)
-return cv2.resize(small, (WIDTH, HEIGHT), interpolation=cv2.INTER_NEAREST)
-```
-
-Obraz se zmenší (`INTER_AREA` = každý nový pixel je průměr čtverce `size x size` původních) a zase zvětší na původní velikost s `INTER_NEAREST` (každý pixel se jen zkopíruje z nejbližšího, žádné vyhlazování). Výsledek: velké ostré čtverce.
-
-**Tint (layers.py:382)**: přebarvení podle jasu, naše vlastní operace.
-
-```python
-lum = np.clip(canvas.mean(axis=2, keepdims=True), 0, 1)       # jas pixelu
-tinted = (dark * (1 - lum) + light * lum) * lum               # :400
-return canvas * (1 - s["Amount"]) + tinted * s["Amount"]
-```
-
-- `canvas.mean(axis=2)` = průměr R, G, B každého pixelu = jeho jas 0..1. `keepdims=True` nechá tvar `(360, 640, 1)`, aby se to dalo násobit s barvou o třech složkách (broadcasting).
-- `dark * (1 - lum) + light * lum` je **lineární interpolace**: tmavé pixely dostanou barvu `Dark`, světlé barvu `Light`, mezi tím plynulý přechod. Celé se to ještě vynásobí `lum`, aby černá zůstala černá (jinak by se černé pozadí obarvilo na `Dark`).
-- Poslední řádek smíchá originál a přebarvený obraz podle `Amount`. Tomuhle se obecně říká **crossfade / lineární míchání**: `a * (1 - t) + b * t`.
-
-### `CATALOG` (layers.py:405)
+### `CATALOG` (layers.py:265)
 
 Seznam všech druhů vrstev. Z něj se staví menu *Add layer* (`sirens/ui/visual_page.py`) a podle jejich `NAME` se vrstvy hledají při načítání uloženého souboru (`sirens/session.py`, `LAYERS_BY_NAME`).
 
@@ -589,17 +539,15 @@ Tohle je místo, kde kód **sám** počítá se signálem, a ne jen volá hotovo
 
 **Obrazový signál:**
 
-1. **Aditivní míchání vrstev** (`layers.py:52`, `blend`) a ořez + převod na 8 bitů (`painter.py:45–47`).
-2. **Výpočet geometrie tvarů** z dat o zvuku: Ring (polární souřadnice ze spektra), Wave (vzorky -> body), Bars (spektrum -> obdélníky), Orbit (pohyb po kružnici v čase). OpenCV tu jen kreslí čáry a kruhy podle našich bodů.
-3. **Částicová simulace** (`layers.py:197–222`): vznik, pohyb, stárnutí a zánik částic ve vektorech numpy.
-4. **Feedback** (`layers.py:271–278`): paměť minulého snímku + ztmavení násobením; matici a transformaci dělá OpenCV, ale samotný princip zpětné vazby (painter si drží `self.canvas`) je náš.
-5. **Mirror** (`layers.py:288–294`): zrcadlení přímo přes výřezy pole.
-6. **RGB Split** (`layers.py:359–364`): posun jednotlivých barevných kanálů.
-7. **Tint** (`layers.py:393–401`): výpočet jasu, lineární interpolace mezi dvěma barvami, míchání s originálem.
-8. **Warp** (`layers.py:340–349`): posunová mapa ze sinusovek počítáme sami, OpenCV `remap` ji jen použije.
-9. **Glow** (`layers.py:313–320`): rozmazání je `GaussianBlur` z OpenCV, ale zesílení, přičtení a to, že se nedává do paměti (POST), je naše logika v `painter.py`.
+1. **Aditivní míchání vrstev** (`layers.py:51`, `blend`) a ořez + převod na 8 bitů (`painter.py:45–47`).
+2. **Výpočet geometrie tvarů** z dat o zvuku: Ring (polární souřadnice ze spektra) a Particles (pozice, rychlost a život částic). OpenCV tu jen kreslí čáry a kruhy podle našich bodů.
+3. **Částicová simulace** (`layers.py:120–167`): vznik, pohyb, stárnutí a zánik částic ve vektorech numpy.
+4. **Feedback** (`layers.py:169–193`): paměť minulého snímku + ztmavení násobením; matici a transformaci dělá OpenCV, ale samotný princip zpětné vazby (painter si drží `self.canvas`) je náš.
+5. **Mirror** (`layers.py:194–209`): zrcadlení přímo přes výřezy pole.
+6. **Warp** (`layers.py:236–264`): posunová mapa ze sinusovek počítáme sami, OpenCV `remap` ji jen použije.
+7. **Glow** (`layers.py:210–235`): rozmazání je `GaussianBlur` z OpenCV, ale zesílení, přičtení a to, že se nedává do paměti (POST), je naše logika v `painter.py`.
 
-Čistě knihovní operace jsou: kreslicí funkce `cv2.polylines/rectangle/circle`, `cv2.getRotationMatrix2D` + `cv2.warpAffine`, `cv2.GaussianBlur`, `cv2.remap`, `cv2.resize`. I ty ale pokaždé dostávají parametry spočítané ze zvuku.
+Čistě knihovní operace jsou: kreslicí funkce `cv2.polylines/circle`, `cv2.getRotationMatrix2D` + `cv2.warpAffine`, `cv2.GaussianBlur`, `cv2.remap`. I ty ale pokaždé dostávají parametry spočítané ze zvuku.
 
 ---
 
@@ -621,7 +569,7 @@ Tohle je místo, kde kód **sám** počítá se signálem, a ne jen volá hotovo
 Nejsou to chyby, ale když se zeptají „proč to dělá tohle“, hodí se to vědět:
 
 - Spektrum se nepočítá každý snímek, ale jen když je hotový nový úsek (zhruba každý druhý snímek). Features a světlo se ale přepočítávají každý snímek, takže občas pracují se stejnými daty dvakrát. Úseky taky nejdou plynule za sebou: nahrávání dalšího se spustí až v tiku, takže kousek zvuku mezi nimi se neanalyzuje. Pro obraz a světlo to nevadí.
-- Rozlišení spektra je 21,5 Hz, takže u nejnižších bodů logaritmického spektra (pod ~350 Hz) připadá na jeden koš analyzátoru víc bodů a Bars/Ring tam ukazují „schody“ (několik stejných sloupců vedle sebe).
+- Rozlišení spektra je 21,5 Hz, takže u nejnižších bodů logaritmického spektra (pod ~350 Hz) připadá na jeden koš analyzátoru víc bodů a Ring tam ukazuje „schody“ (několik stejných bodů vedle sebe).
 - Vyhlazení světla i doznívání beatu jsou „za snímek“, ne „za sekundu“. Kdyby aplikace běžela na jiném FPS, reagovaly by trochu jinak rychle.
 - Glow počítá záři z toho, co je nakreslené **nad ním** v seznamu. Když ho dáš úplně nahoru, září jen paměť z minulého snímku (nebo nic).
 
@@ -651,7 +599,7 @@ Shora dolů, každá dostane obraz a vrátí upravený. Tvary kreslí do černé
 Painter si pamatuje poslední snímek. Když je v seznamu Feedback, začne se od něj místo od černé; Feedback ho zvětší, otočí (afinní transformace) a ztmaví, takže starší tvary odplouvají a hasnou. Kdyby se do té paměti přičítala i záře, sčítala by se každý snímek znovu a obraz by zbělal.
 
 **8. Která vrstva je čistě vaše operace nad obrazem? Vysvětli ji.**
-Třeba Tint: spočítám jas každého pixelu jako průměr R, G, B, podle něj míchám mezi tmavou a světlou barvou (lineární interpolace), vynásobím jasem, aby černá zůstala černá, a smíchám s originálem podle Amount. Nebo Mirror: levou půlku pole obrátím (`[:, ::-1]`) a zapíšu do pravé.
+Třeba Mirror: levou půlku pole obrátím (`[:, ::-1]`) a zapíšu do pravé, stejně tak horní do spodní. Nebo Warp: mapu posunů spočítám sám ze sinusovek a OpenCV `remap` ji jen aplikuje.
 
 **9. Co posíláte do světla a jak?**
 Basy, středy a výšky (0..1) vyhladím a použiju jako R, G, B. Vynásobím jasem a 255, zapíšu na kanály Address, Address+1, Address+2 do seznamu 512 DMX kanálů. Ten zabalím do paketu Art-Net (ArtDmx: hlavička 18 bajtů + 512 bajtů dat) a pošlu UDP na port 6454.

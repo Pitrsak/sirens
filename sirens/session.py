@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 
 from sirens.audio.blocks import CATALOG as BLOCKS
-from sirens.song import MAX_BARS, MIN_BARS, Note, Pattern
+from sirens.song import MAX_BARS, MIN_BARS, STEPS_PER_BAR, Note, Pattern
 from sirens.visual.layers import CATALOG as LAYERS
 
 AUTOSAVE = Path.home() / ".sirens" / "autosave.json"      # ~/.sirens/autosave.json, v domovský složce
@@ -56,8 +56,8 @@ def _track(track) -> dict:
         "current": track.current,
         "view_low": track.view_low,
         **sound_of(track),          # ** vysype sem všechny klíče ze sound_of (instrument, automation, blocks)
-        # nota jako [krok, výška, délka, síla]; kroky jsou v mřížce patternu (grid)
-        "patterns": {name: {"bars": pattern.bars, "grid": pattern.grid,
+        # nota jako [krok, výška, délka, síla]; krok = šestnáctina (16 na takt)
+        "patterns": {name: {"bars": pattern.bars,
                             "notes": [[n.step, n.pitch, n.length, n.velocity] for n in pattern.notes]}
                      for name, pattern in track.patterns.items()},
         "arrangement": {str(bar): name for bar, name in track.arrangement.items()},
@@ -119,9 +119,13 @@ def _restore_track(track, data: dict):
     for name, item in data.get("patterns", {}).items():
         if name in track.patterns:
             # starší soubory: bez "grid" (= šestnáctiny) a noty jen [krok, výška, délka] (síla pak 100)
-            pattern = Pattern(item.get("bars", 1), item.get("grid", 16))
+            pattern = Pattern(item.get("bars", 1))
+            # trioly už nejsou, starý soubor s gridem 12 nebo 24 přepočítáme na šestnáctiny
+            old_grid = item.get("grid", 16)
+            scale = STEPS_PER_BAR / old_grid
             # Note(*note): seznam [krok, výška, délka, síla] se rozbalí do argumentů
-            pattern.notes = [Note(*note) for note in item.get("notes", [])]
+            pattern.notes = [Note(round(n[0] * scale), n[1], max(1, round(n[2] * scale)), *n[3:])
+                             for n in item.get("notes", [])]
             track.patterns[name] = pattern
     track.arrangement = {int(bar): name for bar, name in data.get("arrangement", {}).items()}
 

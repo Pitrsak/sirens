@@ -6,7 +6,7 @@ zvuk teče rackem shora dolů:
 
 zdroje hrají noty: pro každý hlas nástroje (viz instrument.py) jeden signál,
 výška podle noty, hlasitost podle obálky. dokud se nic nehraje, mlčí (obálka je 0).
-efekty Chorus, Delay a Reverb nejdřív sečtou všechny hlasy do jednoho
+efekty Delay a Reverb nejdřív sečtou všechny hlasy do jednoho
 (jedna ozvěna pro všechny noty, jinak by to bylo 8 ozvěn a 8x víc počítání),
 Filter, Distortion a Bitcrush zpracují každou notu zvlášť, pokud jsou nad nimi.
 
@@ -27,8 +27,8 @@ nového objektu (Sig(x, mul=y)) a sčítáme přes Mix.
 import math
 from pathlib import Path
 
-from pyo import (FM, LFO, SVF, Chorus, Clip, DataTable, Delay, Freeverb, Interp, Lookup, Max, Mix,
-                 NewTable, Noise, Sig, SigTo, Sine, SndTable, SuperSaw, TrigEnv)
+from pyo import (LFO, SVF, Clip, DataTable, Delay, Freeverb, Interp, Lookup, Max, Mix,
+                 NewTable, Noise, Sig, SigTo, Sine, SndTable, TrigEnv)
 
 from sirens.param import Adjustable, Choice, Param
 
@@ -236,76 +236,6 @@ class OscillatorBlock(SourceBlock):
             self.osc.type = LFO_TYPES[round(value)]
 
 
-class SupersawBlock(SourceBlock):
-    """sedm mírně rozladěných pil najednou: širokej, "tlustej" zvuk na plochy a leady.
-
-    ty pily se navzájem trochu rozcházej, takže zvuk se jakoby vlní a je plnější.
-    """
-
-    NAME = "Supersaw"
-    PARAMS = [
-        *PITCH_PARAMS,
-        Param("Spread", 0, 1, 0.5, help="How far apart the seven saws are tuned: more = wider, richer."),
-        Param("Center", 0, 1, 0.7, help="Balance between the middle saw and the detuned ones."),
-        LEVEL,
-    ]
-
-    def __init__(self, instrument):
-        super().__init__(instrument)
-        self.output = SuperSaw(freq=self.freq(), detune=self.values["Spread"],
-                               bal=self.values["Center"], mul=self.amp())
-
-
-class FMBlock(SourceBlock):
-    """frekvenční modulace: jeden sinus rychle rozkmitává výšku druhýho. zvony, kovy, basy.
-
-    modulátor kmitá Ratio-krát rychlejc než nota, Index říká, jak moc s výškou cloumá.
-    vzniknou tím nový frekvence kolem tónu, proto se to ozve jako "kovově".
-    """
-
-    NAME = "FM"
-    PARAMS = [
-        *PITCH_PARAMS,
-        Param("Ratio", 0.25, 8, 2, step=0.25, help="Speed of the modulating sine against the note. "
-                                                   "Whole numbers sound musical, others metallic."),
-        Param("Index", 0, 20, 4, help="How strongly it modulates: more = brighter, harsher."),
-        LEVEL,
-    ]
-
-    def __init__(self, instrument):
-        super().__init__(instrument)
-        self.output = FM(carrier=self.freq(), ratio=self.values["Ratio"],
-                         index=self.values["Index"], mul=self.amp())
-
-
-class AdditiveBlock(SourceBlock):
-    """aditivní syntéza: sinusovky na násobcích tónu f, 2f, 3f... sečtený dohromady.
-
-    s amplitudama 1, 1/2, 1/3... vznikne pila, jen s lichými (1, 3, 5, 7) skoro obdélník.
-    každej slider Harmonic n = jak hlasitě zní n-tej násobek, takže si barvu tónu
-    skládám ručně ze sinusovek.
-    """
-
-    NAME = "Additive"
-    COUNT = 7
-    # výchozí hlasitosti 1, 1/2, 1/3, ... (zaokrouhlený), takže na začátku to zní jako pila
-    PARAMS = [*PITCH_PARAMS, LEVEL] + [Param(f"Harmonic {n}", 0, 1, round(1 / n, 3))
-                                       for n in range(1, COUNT + 1)]
-
-    def __init__(self, instrument):
-        super().__init__(instrument)
-        freq, amp = self.freq(), self.amp()
-        # pro každou harmonickou jeden Sine (s hlasy pro všechny noty), pak je sečtem.
-        # tady operátory klidně můžou být: vlevo je vždycky něco novýho z tohohle bloku
-        # (freq, amp, total), nikdy dlouho žijící slider, takže viz POZOR nahoře je to vpoho.
-        self.partials = [Sine(freq=freq * n, mul=amp * self.values[f"Harmonic {n}"])
-                         for n in range(1, self.COUNT + 1)]
-        total = self.partials[0]
-        for partial in self.partials[1:]:
-            total = total + partial
-        self.output = total * 0.4      # 1 + 1/2 + ... + 1/7 je skoro 2,6, tak ztišíme, ať to nepřebudí
-
-
 class NoiseBlock(SourceBlock):
     """bílej šum: náhodný vzorky, všechny frekvence najednou (není to tón, nemá výšku).
 
@@ -439,7 +369,7 @@ class FilterBlock(EffectBlock):
         self.lfo = Sine(freq=self.values["Wobble rate"], mul=self.values["Wobble"], add=1)
         self.moving = Sig(self.lfo, mul=self.values["Cutoff"])
         cutoff = self.moving
-        # má zvuk shora stejně hlasů jako obálka? pak jsou noty pořád oddělený (žádnej Chorus/Delay/Reverb nad tím)
+        # má zvuk shora stejně hlasů jako obálka? pak jsou noty pořád oddělený (žádnej Delay/Reverb nad tím)
         if len(flow) == len(self.instrument.envelope):
             # zvlášť pro každou notu: obálka posune cutoff až 9x výš
             self.opened = Sig(self.moving, mul=self.opening)
@@ -520,20 +450,6 @@ class BitcrushBlock(ShaperBlock):
         return round(x * levels) / levels   # zaokrouhlení na nejbližší povolenou úroveň
 
 
-class ChorusBlock(EffectBlock):
-    """několik lehce zpožděných a rozhoupaných kopií: zvuk je širší a "živější"."""
-
-    NAME = "Chorus"
-    PARAMS = [
-        Param("Depth", 0, 5, 1, help="How much the copies wander in pitch."),
-        Param("Mix", 0, 1, 0.5, help="0 = original sound only, 1 = copies only."),
-    ]
-
-    def process(self, flow):
-        self.mixed = Mix(flow, voices=1)   # všechny noty do jednoho, viz nahoře
-        return Chorus(self.mixed, depth=self.values["Depth"], feedback=0.25, bal=self.values["Mix"])
-
-
 class DelayBlock(EffectBlock):
     """ozvěna: zpožděná kopie zvuku, část se vrací zpátky a opakuje se (pokaždý slabší)."""
 
@@ -571,5 +487,5 @@ class ReverbBlock(EffectBlock):
 
 
 # bloky, který nabízí menu "Add block", v tomhle pořadí (zdroje, pak efekty, mezi nima čára)
-CATALOG = [OscillatorBlock, SupersawBlock, FMBlock, AdditiveBlock, NoiseBlock, SamplerBlock,
-           FilterBlock, DistortionBlock, BitcrushBlock, ChorusBlock, DelayBlock, ReverbBlock]
+CATALOG = [OscillatorBlock, NoiseBlock, SamplerBlock,
+           FilterBlock, DistortionBlock, BitcrushBlock, DelayBlock, ReverbBlock]

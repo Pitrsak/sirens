@@ -1,4 +1,4 @@
-"""Drobný kreslený prvky UI: nadpis, tlačítka (i ikony Undo / Redo) a stavovej štítek.
+"""Drobný kreslený prvky UI: nadpis, tlačítka a stavovej štítek.
 
 Proč ne normální wx.Button? Nativní tlačítko na macOS barvu ani tvar změnit
 nedovolí, takže by tam svítilo modrý systémový tlačítko. Proto si tlačítka
@@ -11,8 +11,6 @@ Všechny prvky tady jedou podle stejnýho receptu:
    GraphicsContext (hezký kreslení) a nakreslit
  - když se něco změní, zavolá se Refresh() a wx pak sám pošle EVT_PAINT
 """
-
-import math
 
 import wx
 
@@ -121,67 +119,6 @@ class TextButton(wx.Control):
         gc.SetFont(theme.font(10), theme.ERROR if self.hot else theme.TEXT_DIM)
         gc.DrawText(self.label, 2, 2)
 
-
-class ArrowButton(wx.Control):
-    """Ikona Undo (zahnutá šipka doleva) nebo Redo (to samý zrcadlově doprava).
-
-    Bez textu, jako to má v hlavičce většina programů. Když není co vracet,
-    je tmavá a nereaguje (vypnutej prvek wx kliknutí vůbec nedostane, takže
-    to nemusím hlídat sám).
-    """
-
-    SIZE = 28    # čtverec 28 x 28 px
-
-    def __init__(self, parent, redo: bool, on_click, tip: str):
-        super().__init__(parent, style=wx.BORDER_NONE)
-        self.redo, self.on_click = redo, on_click
-        self.hot = False
-        self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
-        self.SetCursor(wx.Cursor(wx.CURSOR_HAND))
-        self.SetMinSize((self.SIZE, self.SIZE))
-        self.SetToolTip(tip)             # bublina s textem, když na tom myš chvíli stojí
-        self.Bind(wx.EVT_PAINT, self._on_paint)
-        self.Bind(wx.EVT_LEFT_UP, lambda e: self.on_click())
-        self.Bind(wx.EVT_ENTER_WINDOW, lambda e: self._set_hot(True))
-        self.Bind(wx.EVT_LEAVE_WINDOW, lambda e: self._set_hot(False))
-
-    def set_enabled(self, enabled: bool):
-        """Zapne / vypne tlačítko, překreslí se ale jen při změně (volá se to 3x za sekundu)."""
-        if enabled != self.IsEnabled():
-            self.Enable(enabled)
-            self.Refresh()
-
-    def _set_hot(self, hot: bool):
-        self.hot = hot
-        self.Refresh()
-
-    def _on_paint(self, event):
-        dc = wx.AutoBufferedPaintDC(self)
-        dc.SetBackground(wx.Brush(self.GetParent().GetBackgroundColour()))
-        dc.Clear()
-        gc = wx.GraphicsContext.Create(dc)
-        if not self.IsEnabled():
-            colour = theme.TEXT_DIM
-        else:
-            colour = theme.TEXT if self.hot else theme.TEXT_MUTED
-        gc.SetPen(wx.Pen(colour, 2, wx.PENSTYLE_SOLID))
-        gc.SetBrush(wx.TRANSPARENT_BRUSH)
-        if self.redo:
-            # Redo = Undo zrcadlově: posunout počátek doprava a otočit osu x,
-            # takže se pak stejnej kód kreslí obráceně
-            gc.Translate(self.SIZE, 0)
-            gc.Scale(-1, 1)
-        # šipka: hrot vlevo nahoře, čára doprava, oblouk dolů a kousek zpátky doleva
-        # (souřadnice v pixelech uvnitř čtverce 28 x 28, y jde dolů)
-        path = gc.CreatePath()
-        path.MoveToPoint(8, 11)
-        path.AddLineToPoint(16, 11)
-        path.AddArc(16, 15.5, 4.5, -math.pi / 2, math.pi / 2, True)   # půlkruh vpravo, střed (16, 15.5), poloměr 4.5
-        path.AddLineToPoint(12, 20)
-        path.MoveToPoint(11.5, 7.5)        # hrot
-        path.AddLineToPoint(8, 11)
-        path.AddLineToPoint(11.5, 14.5)
-        gc.StrokePath(path)                # Stroke = jen obtáhnout čárou, nic nevyplňovat
 
 class StatusPill(wx.Control):
     """Štítek se stavem dole pod grafy (co je v racku, nápověda)."""
