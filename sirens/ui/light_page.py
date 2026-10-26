@@ -1,7 +1,9 @@
-"""Záložka Light: RGB světlo řízené zvukem, posílané přes Art-Net.
+"""Záložka Light: RGB světlo řízený zvukem, posílaný přes Art-Net.
 
 Světlo se počítá pořád (i když je vidět jiná záložka), aby svítilo s hudbou.
-Náhled ukazuje barvu i bez skutečného světla.
+Náhled ukazuje barvu i bez skutečnýho světla.
+Barvu počítá LightRig, po síti to posílá ArtNetSender (oba v sirens/light),
+tahle stránka je jen ovládání, náhled a stavovej štítek.
 """
 
 import ipaddress
@@ -22,8 +24,8 @@ class LightPage(wx.Panel):
         self.SetBackgroundColour(theme.BACKGROUND)
         self.rig = LightRig()
         self.sender = ArtNetSender()
-        self.ip = "127.0.0.1"
-        self.sending = False
+        self.ip = "127.0.0.1"             # výchozí adresa = tenhle počítač (localhost), na zkoušku
+        self.sending = False              # posílá se až po kliknutí na Start sending
 
         self.view = LightView(self)
         self.status = StatusPill(self)
@@ -50,21 +52,24 @@ class LightPage(wx.Panel):
             "Stop sending" if self.sending else "Start sending", self._toggle_sending)
         self.sidebar.add_group("Light")
         self.sidebar.add_note("Bass lights red, middles green, highs blue.")
-        self.sidebar.add_params(self.rig)
+        self.sidebar.add_params(self.rig)        # slidery Brightness, Smoothing, Address, Universe
         self.sidebar.finish()
 
     def _set_ip(self, text: str):
+        # volá se při každým napsaným znaku, kontrola platnosti je až v _send
         self.ip = text
 
     def _toggle_sending(self):
+        # zapnout / vypnout posílání a přepsat text na tlačítku (Layout, protože se mění šířka)
         self.sending = not self.sending
         self.send_button.set_label("Stop sending" if self.sending else "Start sending")
         self.send_button.GetParent().Layout()
 
     def _send(self) -> str:
-        """Pošle aktuální hodnoty světla. Vrací text pro stavový štítek."""
+        """Pošle aktuální hodnoty světla. Vrací text pro stavovej štítek."""
         if not self.sending:
             return "Not sending. Start sending to drive a real light."
+        # try / except: zkusím to, a když to spadne s danou chybou, neshodí to appku, jen vrátím text
         try:
             ipaddress.IPv4Address(self.ip)   # jen kontrola, že je to platná adresa
         except ValueError:
@@ -72,16 +77,18 @@ class LightPage(wx.Panel):
         try:
             self.sender.send(self.ip, self.rig.universe(), self.rig.channels())
         except OSError as error:
-            return f"Cannot send: {error}"
+            return f"Cannot send: {error}"     # síťová chyba (třeba žádná síť)
         return f"Sending to {self.ip}, universe {self.rig.universe()}."
 
     def tick(self, analyzer):
-        """Každý snímek: barva podle zvuku, odeslání, a když je záložka vidět, náhled."""
-        self.rig.update(analyzer.bands())
+        """Každej snímek: barva podle zvuku, odeslání, a když je záložka vidět, náhled."""
+        self.rig.update(analyzer.bands())      # bands = síla basů, středů a výšek
         text = self._send()
         if self.IsShown():
             self.view.show(self.rig.values(), self.rig.address())
+            # červeně jen když posílat chci a nejde to
             self.status.show(text, error=self.sending and not text.startswith("Sending"))
 
     def close(self):
+        # při zavírání appky zavřít síťovej socket
         self.sender.close()

@@ -1,15 +1,15 @@
 """Export písně do WAV.
 
-pyo má v jednom programu jen jeden server a ten hraje v reálném čase, takže
-píseň nevykreslujeme "offline". Přehrajeme ji jednou v režimu Song od 1. taktu
-do konce posledního použitého taktu a nahráváme výstup serveru, tedy přesně to,
-co jde do repro (i s hlasitostí). Po konci písně necháme TAIL sekund doznít
-dozvuk a doznění not, ať se neuříznou.
+pyo má v jednom programu jen jeden server a ten hraje v reálným čase, takže
+píseň nevykreslujeme "offline" (rychlejc než realtime). Prostě ji jednou
+přehrajeme v režimu Song od 1. taktu do konce posledního použitýho taktu
+a nahráváme výstup serveru, tedy přesně to, co jde do repro (i s hlasitostí).
+Po konci písně necháme TAIL sekund doznít dozvuk a doznění not, ať se neuříznou.
 
 Průběh (hlavní okno volá tick() 30x za sekundu):
-    píseň hraje  ->  hodiny se na konci samy zastaví (Player.once)
+    píseň hraje  ->  hodiny se na konci samy zastavěj (Player.once)
     dozvuk       ->  od zastavení uplyne TAIL sekund
-    hotovo       ->  konec nahrávání, přehrávač dostane zpět svůj režim
+    hotovo       ->  konec nahrávání, přehrávač dostane zpátky svůj režim
 """
 
 import time
@@ -22,6 +22,7 @@ TAIL = 3.0     # jak dlouho po konci písně ještě nahrávat (s)
 def clock(seconds: float) -> str:
     """Čas jako m:ss (např. 3:07)."""
     seconds = round(seconds)
+    # // = celý minuty, % = zbylý sekundy, :02d = vždycky dvě číslice (07, ne 7)
     return f"{seconds // 60}:{seconds % 60:02d}"
 
 
@@ -35,21 +36,21 @@ class Export:
         player.mode = "Song"
         player.once = True
         engine.start_recording(str(path))
-        self.start = time.monotonic()
+        self.start = time.monotonic()        # monotonic: hodiny, který nejdou pozpátku ani při změně času v systému
         player.play(from_tick=0)             # od 1. taktu, start_bar se tu nepoužije
         self.status = ""
         self.tick()                          # první text do status
 
     def song_seconds(self) -> float:
-        """Délka písně do konce posledního použitého taktu: takt = 4 doby po 60 / tempo s."""
+        """Délka písně do konce posledního použitýho taktu: takt = 4 doby po 60 / tempo s."""
         song = self.player.song
         return song.last_bar() * BEATS_PER_BAR * 60 / song.tempo
 
     def tick(self) -> bool:
         """Posune export dál a obnoví status. Vrátí True, když export právě skončil.
 
-        Volá se jen z vlákna UI. Hodiny přehrávače (jiné vlákno) jen shodí
-        player.playing; všechno ostatní (stop, konec nahrávání) děláme tady.
+        Volá se jen z vlákna UI. Hodiny přehrávače (jiný vlákno) jen shodí
+        player.playing, všechno ostatní (stop, konec nahrávání) děláme tady.
         """
         now = time.monotonic()
         if self.tail_end is None and not self.player.playing:
@@ -71,6 +72,6 @@ class Export:
 
     def _end(self):
         self.player.stop()                   # počká na hodiny a vypne znějící noty
-        self.engine.stop_recording()
+        self.engine.stop_recording()         # tady se WAV dopíše a zavře
         self.player.once = False
         self.player.mode = self.old_mode

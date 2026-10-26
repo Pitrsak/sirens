@@ -1,16 +1,18 @@
-"""Vrstvy, ze kterých se skládá obraz (jako bloky u zvuku).
+"""Vrstvy, ze kterých se skládá obraz (jako bloky u zvuku, jen pro obraz).
 
-Obraz (canvas) je pole HEIGHT x WIDTH x 3 (R, G, B) s hodnotami 0..1.
-Vrstvy se provedou shora dolů, každá dostane canvas a vrátí ho upravený:
+Obraz (canvas) je pole HEIGHT x WIDTH x 3 (R, G, B) s hodnotami 0..1
+(float, takže 0.5 = půlka jasu; během počítání to může přetýct nad 1, painter to na konci ořízne).
+Vrstvy se provedou shora dolů, každá dostane canvas a vrátí ho upravenej:
  - tvary (IS_SOURCE = True) do něj něco nakreslí (kruh, vlnu, částice...),
- - efekty (IS_SOURCE = False) změní celý obraz (dozvuk, zrcadlo, záře...).
+ - efekty (IS_SOURCE = False) změní celej obraz (dozvuk, zrcadlo, záře...).
 
-Každá vrstva může reagovat na zvuk: "React to" vybere, na co (hlasitost,
-basy, středy, výšky, úder), "Reaction" jak silně. drive() z toho dá číslo
-0..2, které vrstva použije (zvětší tvar, zesílí efekt, ...).
+Každá vrstva může reagovat na zvuk: "React to" vybere na co (hlasitost,
+basy, středy, výšky, úder), "Reaction" jak moc. drive() z toho udělá číslo
+0..2, který si vrstva použije po svým (zvětší tvar, zesílí efekt, ...).
 
-Tvary kreslí OpenCV do 8bitové vrstvy (vyhlazené čáry umí jen v 8 bitech)
-a ta se k obrazu přičte (blend): světlo se sčítá jako u projektorů.
+Tvary kreslí OpenCV do 8bitový vrstvy (vyhlazený čáry umí jen v 8 bitech)
+a ta se k obrazu přičte (blend): světlo se sčítá jako u projektorů,
+dvě barvy přes sebe daj světlejší, nikdy tmavší.
 """
 
 import colorsys
@@ -21,11 +23,12 @@ import numpy as np
 
 from sirens.param import Adjustable, Choice, Param
 
-WIDTH, HEIGHT = 640, 360
-REACT = ("None", "Level", "Bass", "Mid", "High", "Beat")
+WIDTH, HEIGHT = 640, 360    # rozlišení obrazu v pixelech (16:9), na fullscreen se to jen zvětší
+REACT = ("None", "Level", "Bass", "Mid", "High", "Beat")    # možnosti "React to", v settings je jejich pořadí
 
 
 def react_params(default: int):
+    # dva slidery, který má skoro každá vrstva: na co reagovat a jak moc (default = index do REACT)
     return [
         Choice("React to", REACT, default, help="Which part of the sound drives this layer."),
         Param("Reaction", 0, 2, 1, help="How strongly it reacts."),
@@ -33,6 +36,7 @@ def react_params(default: int):
 
 
 def colour_params(hue: float):
+    # barva jako odstín na barevným kole (0..360 stupňů) + jas
     return [
         Param("Color", 0, 360, hue, "deg", help="Hue on the colour wheel (0 red, 120 green, 240 blue)."),
         Param("Brightness", 0, 1, 0.9),
@@ -40,38 +44,54 @@ def colour_params(hue: float):
 
 
 def blend(canvas, layer8):
-    """Přičte 8bitovou vrstvu (0..255) k obrazu (0..1)."""
+    """Přičte 8bitovou vrstvu (0..255) k obrazu (0..1).
+
+    Vydělit 255 (to je to * (1 / 255)), ať je to ve stejným rozsahu, a sečíst pixel po pixelu.
+    Pozor, += mění canvas na místě, žádná kopie nevzniká.
+    """
     canvas += layer8.astype(np.float32) * (1 / 255)
     return canvas
 
 
 class Layer(Adjustable):
-    NAME = ""
-    IS_SOURCE = True
+    NAME = ""           # jméno v menu "Add layer" (a v uloženým souboru)
+    IS_SOURCE = True    # True = tvar (něco kreslí), False = efekt (mění obraz)
     POST = False        # True: jen navrch výsledku, ne do paměti pro Feedback (viz Glow)
     enabled = True      # vypnutou vrstvu painter přeskočí
 
     def drive(self, f) -> float:
-        """Síla reakce na zvuk 0..2 podle "React to" a "Reaction" (None = 0)."""
-        source = REACT[round(self.settings["React to"])]
+        """Síla reakce na zvuk 0..2 podle "React to" a "Reaction" (None = 0).
+
+        Vybraná věc ze zvuku je 0..1, Reaction 0..2, a to se prostě vynásobí.
+        """
+        source = REACT[round(self.settings["React to"])]     # číslo zpátky na jméno, třeba 2 -> "Bass"
+        # slovník jméno -> hodnota z Features, a vyberu z něj tu jednu
         signal = {"None": 0.0, "Level": f.level, "Bass": f.bass, "Mid": f.mid,
                   "High": f.high, "Beat": f.beat}[source]
         return signal * self.settings["Reaction"]
 
     def colour(self, hue_shift: float = 0.0):
-        """Barva vrstvy pro OpenCV jako (R, G, B) 0..255."""
+        """Barva vrstvy pro OpenCV jako (R, G, B) 0..255.
+
+        HSV = odstín, sytost, jas, v tom se barva vybírá líp než míchat R, G, B ručně.
+        Odstín je Color + hue_shift, % 360 to přetočí dokola a / 360 dá 0..1, jak chce colorsys,
+        sytost je natvrdo 0.7, jas = Brightness. colorsys to pak převede na RGB 0..1, takže krát 255.
+        """
         s = self.settings
         r, g, b = colorsys.hsv_to_rgb((s["Color"] + hue_shift) % 360 / 360, 0.7, s["Brightness"])
         return (r * 255, g * 255, b * 255)
 
     def apply(self, canvas, f):
-        raise NotImplementedError
+        raise NotImplementedError       # každá vrstva si to napíše po svým
 
 
-# --- tvary ---
+# --- TVARY, kreslí něco novýho ---
 
 class RingLayer(Layer):
-    """Uzavřená křivka kolem středu: poloměr v každém úhlu dává spektrum."""
+    """Uzavřená křivka kolem středu, poloměr v každým úhlu dává spektrum.
+
+    Basy jsou nahoře, výšky dole, levá půlka je zrcadlo pravý.
+    """
 
     NAME = "Ring"
     PARAMS = [
@@ -84,18 +104,22 @@ class RingLayer(Layer):
 
     def apply(self, canvas, f):
         s = self.settings
-        levels = np.concatenate([f.spectrum, f.spectrum[::-1]])   # pravá půlka + zrcadlo vlevo
+        levels = np.concatenate([f.spectrum, f.spectrum[::-1]])   # pravá půlka + zrcadlo vlevo ([::-1] = pozpátku)
+        # úhel pro každej bod dokola, - pi/2 = začíná se nahoře (y v obrázku roste dolů)
         angles = np.linspace(0, 2 * np.pi, len(levels), endpoint=False) - np.pi / 2
+        # poloměr = základ Size (nafouknutej podle zvuku) + kousek podle spektra v tom úhlu
         radius = HEIGHT * (s["Size"] * (1 + 0.5 * self.drive(f)) + 0.25 * s["Spectrum"] * levels)
+        # z úhlu a poloměru na pixely: x = střed + r*cos, y = střed + r*sin, a na celý čísla (OpenCV chce int)
         points = np.stack([WIDTH / 2 + radius * np.cos(angles),
                            HEIGHT / 2 + radius * np.sin(angles)], axis=1).astype(np.int32)
-        layer = np.zeros_like(canvas, dtype=np.uint8)
+        layer = np.zeros_like(canvas, dtype=np.uint8)     # prázdná černá 8bitová vrstva, stejně velká
+        # polylines = lomená čára přes body, True = uzavřená, LINE_AA = vyhlazená
         cv2.polylines(layer, [points], True, self.colour(), round(s["Line"]), cv2.LINE_AA)
         return blend(canvas, layer)
 
 
 class WaveLayer(Layer):
-    """Tvar zvukové vlny přes celou šířku (jako osciloskop)."""
+    """Tvar zvukový vlny přes celou šířku (jako osciloskop)."""
 
     NAME = "Wave"
     PARAMS = [
@@ -109,17 +133,18 @@ class WaveLayer(Layer):
     def apply(self, canvas, f):
         s = self.settings
         if len(f.wave) < 2:
-            return canvas
-        x = np.linspace(0, WIDTH - 1, len(f.wave))
+            return canvas       # z jednoho bodu čáru neudělám
+        x = np.linspace(0, WIDTH - 1, len(f.wave))      # vzorky rovnoměrně přes celou šířku
+        # Position je středová čára, kladná vlna jde nahoru, proto minus (y roste dolů)
         y = HEIGHT * s["Position"] - f.wave * HEIGHT * s["Height"] * (1 + self.drive(f))
         points = np.stack([x, y], axis=1).astype(np.int32)
         layer = np.zeros_like(canvas, dtype=np.uint8)
-        cv2.polylines(layer, [points], False, self.colour(), round(s["Line"]), cv2.LINE_AA)
+        cv2.polylines(layer, [points], False, self.colour(), round(s["Line"]), cv2.LINE_AA)    # False = neuzavírat
         return blend(canvas, layer)
 
 
 class BarsLayer(Layer):
-    """Sloupce spektra (hluboké tóny vlevo, vysoké vpravo)."""
+    """Sloupce spektra (hluboký tóny vlevo, vysoký vpravo)."""
 
     NAME = "Bars"
     PARAMS = [
@@ -133,25 +158,26 @@ class BarsLayer(Layer):
     def apply(self, canvas, f):
         s = self.settings
         count = round(s["Count"])
-        index = np.linspace(0, len(f.spectrum) - 1, count).astype(int)
-        heights = f.spectrum[index] * HEIGHT * s["Height"] * (1 + self.drive(f))
-        width = WIDTH / count
+        index = np.linspace(0, len(f.spectrum) - 1, count).astype(int)    # count bodů ze spektra, rovnoměrně
+        heights = f.spectrum[index] * HEIGHT * s["Height"] * (1 + self.drive(f))    # výšky sloupců v pixelech
+        width = WIDTH / count       # šířka jednoho sloupce
         layer = np.zeros_like(canvas, dtype=np.uint8)
         for i, h in enumerate(heights):
-            x0, x1 = int(i * width + 1), int((i + 1) * width - 1)
-            if s["Place"] < 0.5:
+            x0, x1 = int(i * width + 1), int((i + 1) * width - 1)     # +1 a -1 = mezírka mezi sloupci
+            if s["Place"] < 0.5:        # Bottom: roste od spodního okraje
                 y0, y1 = int(HEIGHT - h), HEIGHT
-            else:
+            else:                       # Center: od prostředka na obě strany
                 y0, y1 = int(HEIGHT / 2 - h / 2), int(HEIGHT / 2 + h / 2)
+            # plnej obdélník (-1 = vyplnit), odstín se doprava posouvá až o 60 stupňů
             cv2.rectangle(layer, (x0, y0), (x1, y1), self.colour(i / count * 60), -1)
         return blend(canvas, layer)
 
 
 class ParticlesLayer(Layer):
-    """Částice vyletují ze středu (hlavně při úderech) a pomalu hasnou."""
+    """Částice vyletujou ze středu (hlavně při úderech) a pomalu hasnou."""
 
     NAME = "Particles"
-    MAX = 800
+    MAX = 800       # strop, víc částic najednou ne
     PARAMS = [
         *react_params(5),
         Param("Amount", 0, 1, 0.5, help="How many particles are born."),
@@ -163,37 +189,41 @@ class ParticlesLayer(Layer):
 
     def __init__(self):
         super().__init__()
-        self.pos = np.zeros((0, 2), dtype=np.float32)    # poloha každé částice
+        # každá částice = jeden řádek v polích, takže se dají hýbat všechny najednou
+        self.pos = np.zeros((0, 2), dtype=np.float32)    # poloha každý částice (x, y)
         self.vel = np.zeros((0, 2), dtype=np.float32)    # rychlost (posun za snímek)
         self.life = np.zeros(0, dtype=np.float32)        # jas 1 -> 0
 
     def apply(self, canvas, f):
         s = self.settings
-        # nové částice: bez reakce stálý proud, s reakcí podle zvuku
+        # nový částice: bez reakce stálej proud, s reakcí podle zvuku
+        # ("React to" 0 = None, takže >= 1 znamená, že je něco vybraný)
         drive = self.drive(f) if s["React to"] >= 1 else 0.5
-        born = min(int(s["Amount"] * 40 * drive), self.MAX - len(self.life))
+        born = min(int(s["Amount"] * 40 * drive), self.MAX - len(self.life))    # kolik se jich narodí, max do stropu
         if born > 0:
-            angle = np.random.uniform(0, 2 * np.pi, born)
-            speed = np.random.uniform(0.3, 1, born) * s["Speed"]
-            self.pos = np.vstack([self.pos, np.tile([WIDTH / 2, HEIGHT / 2], (born, 1))])
+            angle = np.random.uniform(0, 2 * np.pi, born)          # náhodnej směr
+            speed = np.random.uniform(0.3, 1, born) * s["Speed"]   # náhodná rychlost 30..100 % ze Speed
+            self.pos = np.vstack([self.pos, np.tile([WIDTH / 2, HEIGHT / 2], (born, 1))])    # všechny začínaj uprostřed
+            # směr (cos, sin) krát rychlost = posun za snímek
             self.vel = np.vstack([self.vel, np.stack([np.cos(angle), np.sin(angle)], 1) * speed[:, None]])
-            self.life = np.concatenate([self.life, np.ones(born)])
-        # pohyb a stárnutí; vyhaslé zahodíme
+            self.life = np.concatenate([self.life, np.ones(born)])     # plnej jas
+        # pohyb a stárnutí, vyhaslý zahodím
         self.pos = self.pos + self.vel
-        self.life = self.life * s["Life"]
-        alive = self.life > 0.05
+        self.life = self.life * s["Life"]       # každej snímek trochu zhasnou (Life 0.95 = o 5 %)
+        alive = self.life > 0.05                # maska, kdo ještě svítí
         self.pos, self.vel, self.life = self.pos[alive], self.vel[alive], self.life[alive]
 
         layer = np.zeros_like(canvas, dtype=np.uint8)
         r, g, b = self.colour()
         size = round(s["Size"])
         for (x, y), life in zip(self.pos, self.life):
+            # plný (-1) vyhlazený kolečko, barva ztlumená podle life
             cv2.circle(layer, (int(x), int(y)), size, (r * life, g * life, b * life), -1, cv2.LINE_AA)
         return blend(canvas, layer)
 
 
 class OrbitLayer(Layer):
-    """Kolečka obíhající kolem středu."""
+    """Kolečka, který obíhaj kolem středu."""
 
     NAME = "Orbit"
     PARAMS = [
@@ -209,22 +239,24 @@ class OrbitLayer(Layer):
         s = self.settings
         count = round(s["Count"])
         drive = self.drive(f)
-        radius = s["Radius"] * HEIGHT * (1 + 0.5 * drive)
+        radius = s["Radius"] * HEIGHT * (1 + 0.5 * drive)      # dráha, se zvukem se nafoukne až na dvojnásobek
         layer = np.zeros_like(canvas, dtype=np.uint8)
         for i in range(count):
+            # otáčení časem (Speed otáček za s, 2*pi = jedna otáčka) + rozestup, ať jsou kolečka rozložený rovnoměrně
             angle = f.time * s["Speed"] * 2 * math.pi + i * 2 * math.pi / count
-            x = WIDTH / 2 + radius * math.cos(angle)
+            x = WIDTH / 2 + radius * math.cos(angle)       # bod na kružnici kolem středu
             y = HEIGHT / 2 + radius * math.sin(angle)
+            # kolečko roste se zvukem, každý další má odstín o 15 stupňů jinej
             cv2.circle(layer, (int(x), int(y)), int(s["Size"] * (1 + drive)), self.colour(i * 15), -1, cv2.LINE_AA)
         return blend(canvas, layer)
 
 
-# --- efekty ---
+# --- EFEKTY, mění to, co už je nakreslený ---
 
 class FeedbackLayer(Layer):
-    """Dozvuk obrazu: minulý snímek se zvětší, pootočí a ztmaví, nové tvary se kreslí přes něj.
+    """Dozvuk obrazu: minulej snímek se zvětší, pootočí a ztmaví, nový tvary se kreslí přes něj.
 
-    Staré tvary tak odplouvají a hasnou jako v tunelu. Patří nahoru (první vrstva).
+    Starý tvary tak odplouvaj a hasnou jako v tunelu. Patří nahoru (první vrstva).
     """
 
     NAME = "Feedback"
@@ -238,33 +270,35 @@ class FeedbackLayer(Layer):
 
     def apply(self, canvas, f):
         s = self.settings
-        zoom = s["Zoom"] + 0.05 * self.drive(f)
+        zoom = s["Zoom"] + 0.05 * self.drive(f)     # se zvukem se zoom ještě přidá, max o 0.1
+        # matice 2x3, která otočí o Spin stupňů a zvětší o zoom, obojí kolem středu obrázku
         matrix = cv2.getRotationMatrix2D((WIDTH / 2, HEIGHT / 2), s["Spin"], zoom)
+        # warpAffine přesune každej pixel podle tý matice (otočení + zvětšení najednou)
         canvas = cv2.warpAffine(canvas, matrix, (WIDTH, HEIGHT))
-        return canvas * s["Fade"]
+        return canvas * s["Fade"]       # ztmavení, třeba na 90 % každej snímek, starý věci tak postupně zmizí
 
 
 class MirrorLayer(Layer):
-    """Zrcadlení (vlastní operace s polem): jedna polovina obrazu se překlopí na druhou."""
+    """Zrcadlení (vlastní operace s polem): jedna půlka obrazu se překlopí na druhou."""
 
     NAME = "Mirror"
     IS_SOURCE = False
     PARAMS = [Choice("Mode", ("Left-right", "Top-bottom", "Both"), 0)]
 
     def apply(self, canvas, f):
-        mode = round(self.settings["Mode"])
+        mode = round(self.settings["Mode"])     # 0 = zleva doprava, 1 = shora dolů, 2 = obojí
         if mode in (0, 2):
-            canvas[:, WIDTH // 2:] = canvas[:, :WIDTH // 2][:, ::-1]    # levá půlka obráceně vpravo
+            canvas[:, WIDTH // 2:] = canvas[:, :WIDTH // 2][:, ::-1]    # levá půlka obráceně vpravo (sloupce pozpátku)
         if mode in (1, 2):
-            canvas[HEIGHT // 2:] = canvas[:HEIGHT // 2][::-1]          # horní půlka obráceně dole
+            canvas[HEIGHT // 2:] = canvas[:HEIGHT // 2][::-1]          # horní půlka obráceně dole (řádky pozpátku)
         return canvas
 
 
 class GlowLayer(Layer):
-    """Záře: rozmazaná kopie obrazu přičtená navrch, světlá místa svítí do okolí.
+    """Záře: rozmazaná kopie obrazu přičtená navrch, světlý místa svítí do okolí.
 
-    Záře se přidá jen k tomu, co se zobrazí, ne do paměti pro Feedback (POST):
-    jinak by se světlo každý snímek přičítalo znovu a obraz by během chvíle zbělal.
+    Záře se přidá jen k tomu, co se zobrazí, ne do paměti pro Feedback (POST),
+    jinak by se světlo každej snímek přičítalo znova a obraz by za chvilku zbělal.
     """
 
     NAME = "Glow"
@@ -277,13 +311,17 @@ class GlowLayer(Layer):
     ]
 
     def halo(self, canvas, f):
-        """Obraz záře, který se přičte k výslednému snímku."""
+        """Obraz záře, kterej se přičte k výslednýmu snímku.
+
+        GaussianBlur = rozmazání, každej pixel je váženej průměr okolí (váhy ve tvaru zvonu,
+        Gaussova křivka). (0, 0) = velikost okna si OpenCV dopočítá samo z Radius (sigma).
+        """
         s = self.settings
         return cv2.GaussianBlur(canvas, (0, 0), s["Radius"]) * s["Amount"] * (1 + self.drive(f))
 
 
 class WarpLayer(Layer):
-    """Vlnění: každý pixel se vezme z místa posunutého o sinusovou vlnu (cv2.remap)."""
+    """Vlnění: každej pixel se vezme z místa posunutýho o sinusovou vlnu (cv2.remap)."""
 
     NAME = "Warp"
     IS_SOURCE = False
@@ -296,14 +334,18 @@ class WarpLayer(Layer):
 
     def __init__(self):
         super().__init__()
+        # mřížka souřadnic, xs[y, x] = x a ys[y, x] = y, každej pixel zná svoji polohu (počítá se jednou)
         self.xs, self.ys = np.meshgrid(np.arange(WIDTH, dtype=np.float32), np.arange(HEIGHT, dtype=np.float32))
 
     def apply(self, canvas, f):
         s = self.settings
-        amount = s["Amount"] * (1 + self.drive(f))
-        phase = f.time * s["Speed"]
+        amount = s["Amount"] * (1 + self.drive(f))      # o kolik pixelů se posouvá, se zvukem víc
+        phase = f.time * s["Speed"]                     # posun vlny v čase, ať se to hýbe
+        # vodorovnej posun závisí na řádku (y), svislej na sloupci (x), takže se to vlní oběma směry
         dx = amount * np.sin(2 * np.pi * s["Waves"] * self.ys / HEIGHT + phase)
-        dy = amount * np.sin(2 * np.pi * s["Waves"] * self.xs / WIDTH + phase * 1.3)
+        dy = amount * np.sin(2 * np.pi * s["Waves"] * self.xs / WIDTH + phase * 1.3)    # 1.3 = jiná rychlost než dx
+        # remap: výsledek[y, x] = canvas[ys + dy, xs + dx], mezi pixely se dopočítá (INTER_LINEAR),
+        # na krajích se obraz zrcadlí (BORDER_REFLECT), ať tam nejsou černý díry
         return cv2.remap(canvas, self.xs + dx, self.ys + dy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
 
 
@@ -315,9 +357,10 @@ class SplitLayer(Layer):
     PARAMS = [Param("Shift", 0, 30, 4, "px"), *react_params(5)]
 
     def apply(self, canvas, f):
-        shift = int(self.settings["Shift"] * (1 + 2 * self.drive(f)))
+        shift = int(self.settings["Shift"] * (1 + 2 * self.drive(f)))     # se zvukem až pětkrát víc
+        # kanál 0 = R doprava, roll posouvá dokola: co vyjede vpravo, vrátí se zleva
         canvas[..., 0] = np.roll(canvas[..., 0], shift, axis=1)
-        canvas[..., 2] = np.roll(canvas[..., 2], -shift, axis=1)
+        canvas[..., 2] = np.roll(canvas[..., 2], -shift, axis=1)      # kanál 2 = B doleva, zelená zůstane
         return canvas
 
 
@@ -329,8 +372,10 @@ class PixelateLayer(Layer):
     PARAMS = [Param("Size", 1, 40, 8, "px", help="Size of one square."), *react_params(0)]
 
     def apply(self, canvas, f):
-        size = max(1, int(self.settings["Size"] * (1 + self.drive(f))))
+        size = max(1, int(self.settings["Size"] * (1 + self.drive(f))))     # velikost čtverce, se zvukem větší
+        # zmenšení, INTER_AREA zprůměruje každej čtverec do jednoho pixelu
         small = cv2.resize(canvas, (max(1, WIDTH // size), max(1, HEIGHT // size)), interpolation=cv2.INTER_AREA)
+        # a zpátky, INTER_NEAREST jen kopíruje nejbližší pixel, takže vyjdou ostrý čtverce
         return cv2.resize(small, (WIDTH, HEIGHT), interpolation=cv2.INTER_NEAREST)
 
 
@@ -347,12 +392,15 @@ class TintLayer(Layer):
 
     def apply(self, canvas, f):
         s = self.settings
-        dark = np.array(colorsys.hsv_to_rgb(s["Dark"] / 360, 0.8, 1), dtype=np.float32)
-        light = np.array(colorsys.hsv_to_rgb(s["Light"] / 360, 0.6, 1), dtype=np.float32)
+        dark = np.array(colorsys.hsv_to_rgb(s["Dark"] / 360, 0.8, 1), dtype=np.float32)      # barva pro tmavý místa
+        light = np.array(colorsys.hsv_to_rgb(s["Light"] / 360, 0.6, 1), dtype=np.float32)   # barva pro světlý místa
+        # keepdims = zůstane to výška x šířka x 1, takže to jde rovnou násobit s barvou
         lum = np.clip(canvas.mean(axis=2, keepdims=True), 0, 1)     # jas pixelu 0..1
+        # mezi dark a light se míchá podle jasu, a krát jas ještě jednou, ať černá zůstane černá
         tinted = (dark * (1 - lum) + light * lum) * lum              # odstín podle jasu, krát jas
-        return canvas * (1 - s["Amount"]) + tinted * s["Amount"]
+        return canvas * (1 - s["Amount"]) + tinted * s["Amount"]    # mix originálu a přebarvenýho podle Amount
 
 
+# všechny druhy vrstev: tohle nabízí menu "Add layer" a podle NAME se hledaj vrstvy při načítání souboru
 CATALOG = [RingLayer, WaveLayer, BarsLayer, ParticlesLayer, OrbitLayer,
            FeedbackLayer, MirrorLayer, GlowLayer, WarpLayer, SplitLayer, PixelateLayer, TintLayer]
