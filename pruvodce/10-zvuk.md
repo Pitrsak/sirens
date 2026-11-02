@@ -590,7 +590,7 @@ Efekt zpracuje, co přitéká. Když nic nepřitéká, nic nevydá. Konkrétní 
   Důvod: ozvěna nebo dozvuk má být jeden pro všechny noty (jinak 8x víc počítání),
   a u ozvěny noty stejně doznívají přes sebe.
 
-#### FilterBlock (`blocks.py:336-381`)
+#### FilterBlock (`blocks.py:336-385`)
 
 Filtr nechá projít jen část frekvencí: **Low-pass** propustí hloubky (zvuk ztmavne),
 **High-pass** výšky (zvuk zeslábne, zprůhlední), **Band-pass** jen pásmo kolem Cutoff.
@@ -608,7 +608,8 @@ self.moving = Sig(self.lfo, mul=self.values["Cutoff"])
 if len(flow) == len(self.instrument.envelope):
     self.opened = Sig(self.moving, mul=self.opening)
 self.cutoff = Clip(cutoff, 20, 18000)
-return SVF(flow, freq=self.cutoff, q=self.values["Resonance"], type=self.mode)
+self.q = Clip(self.values["Resonance"], 1, 10)
+return SVF(flow, freq=self.cutoff, q=self.q, type=self.mode)
 ```
 
 1. **Wobble**: pomalý sinus kolem 1. Při Wobble 0,5 kmitá mezi 0,5 a 1,5 a tím násobí Cutoff,
@@ -620,8 +621,11 @@ return SVF(flow, freq=self.cutoff, q=self.values["Resonance"], type=self.mode)
    tedy když nad filtrem není Delay/Reverb, který hlasy sečetl. Každá nota má pak
    vlastní filtr se svou obálkou.
 3. `Clip(cutoff, 20, 18000)`: pojistka, ať se hraniční frekvence nedostane mimo rozumný rozsah.
+4. `Clip(Resonance, 1, 10)`: SVF v pyo jde nahoru jen do cca 7,3 kHz (sample rate / 6) a u tý
+   hranice se s Resonance pod 1 rozkmitá až do nekonečna (zkoušel jsem šum přes High-pass 6 kHz
+   s q 0,5 a vyšlo inf). Proto slider Resonance začíná na 1 a Clip hlídá i starý uložený soubory.
 
-#### ShaperBlock: vlastní křivka (`blocks.py:382-419`)
+#### ShaperBlock: vlastní křivka (`blocks.py:386-423`)
 
 Tohle je **naše vlastní zpracování signálu** (waveshaping). Každý vzorek x (číslo -1..1)
 projde funkcí y = curve(x), kterou si počítáme sami.
@@ -648,7 +652,7 @@ def process(self, flow):
 - Když se pohne sliderem, který mění tvar (`SHAPE`), tabulka se přepočítá (`set`).
 - `curve` je v ShaperBlock jen `raise NotImplementedError`, konkrétní křivku dodají potomci.
 
-**DistortionBlock** (`blocks.py:420`):
+**DistortionBlock** (`blocks.py:424`):
 
 ```python
 return math.tanh(drive * x) / math.tanh(drive)
@@ -661,7 +665,7 @@ zajistí, že x = 1 dá zase přesně 1 (maximální hlasitost se nezmění).
 Příklad pro Drive 5: x = 0,2 dá tanh(1)/tanh(5) ≈ 0,76. Tichá místa vlny se hodně zesílí,
 hlasitá narazí na strop.
 
-**BitcrushBlock** (`blocks.py:437`):
+**BitcrushBlock** (`blocks.py:441`):
 
 ```python
 levels = 2 ** round(bits) / 2
@@ -672,7 +676,7 @@ Snížení bitové hloubky: vlna smí mít jen pár povolených úrovní, každ�
 na nejbližší. Z hladké vlny jsou schody, zní to rozbitě a digitálně. Bits 4: `levels` = 8 úrovní
 na každou stranu od nuly, takže povolené hodnoty jsou -1, -7/8, ..., 0, ..., 7/8, 1.
 
-#### Delay a Reverb (`blocks.py:453-489`)
+#### Delay a Reverb (`blocks.py:457-493`)
 
 Oba nejdřív sečtou hlasy (`Mix(flow, voices=1)`) a pak použijí hotový pyo efekt:
 
@@ -683,7 +687,7 @@ Oba nejdřív sečtou hlasy (`Mix(flow, voices=1)`) a pak použijí hotový pyo 
 - **Reverb** (`Freeverb`): dozvuk místnosti, hustá síť odrazů, které doznívají. `Size` = velikost
   místnosti (délka dozvuku), `Damping` = jak rychle v dozvuku mizí výšky.
 
-#### `CATALOG` (`blocks.py:490`)
+#### `CATALOG` (`blocks.py:494`)
 
 Seznam tříd bloků v pořadí, v jakém jsou v menu **Add block**. UI mezi poslední zdroj a první
 efekt vloží čáru (podle `IS_SOURCE`). Ukládání (`session.py`) z něj dělá slovník
@@ -722,9 +726,9 @@ Tady kód zvuk opravdu počítá sám, nejen skládá hotové efekty knihovny:
 
 | Kde | Co počítáme sami |
 |---|---|
-| `ShaperBlock._draw_curve`, `blocks.py:405` | přenosová křivka y = f(x) pro každý vzorek, počítaná v Pythonu do tabulky 4096 bodů |
-| `DistortionBlock.curve`, `blocks.py:431` | zkreslení funkcí tanh s normalizací, aby se nezměnila maximální hlasitost |
-| `BitcrushBlock.curve`, `blocks.py:448` | kvantování (zaokrouhlení) vzorku na 2^bits úrovní |
+| `ShaperBlock._draw_curve`, `blocks.py:409` | přenosová křivka y = f(x) pro každý vzorek, počítaná v Pythonu do tabulky 4096 bodů |
+| `DistortionBlock.curve`, `blocks.py:435` | zkreslení funkcí tanh s normalizací, aby se nezměnila maximální hlasitost |
+| `BitcrushBlock.curve`, `blocks.py:452` | kvantování (zaokrouhlení) vzorku na 2^bits úrovní |
 | `drop_curve`, `blocks.py:124` | exponenciální křivka poklesu výšky, upravená, aby končila přesně v 0 |
 | `SourceBlock.freq`, `_ratio`, `_amount` | výpočet frekvence každého hlasu: nota * 2^(oktáva + centy/1200) * (1 + amount * křivka) |
 | `SamplerBlock._build` | změna výšky vzorku přes rychlost přehrávání: dur = délka / (f / f_C4 * 2^(posun/12)) |

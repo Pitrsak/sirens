@@ -345,7 +345,7 @@ class FilterBlock(EffectBlock):
         Choice("Mode", FILTER_MODES, 0, help="Low-pass keeps the lows (darker), High-pass the highs "
                                              "(thinner), Band-pass a band around the cutoff."),
         Param("Cutoff", 20, 20000, 1200, "Hz", log=True, help="Where the filter starts cutting."),
-        Param("Resonance", 0.5, 10, 1, help="Boost right at the cutoff: higher = sharper, whistling."),
+        Param("Resonance", 1, 10, 1, help="Boost right at the cutoff: higher = sharper, whistling."),
         Param("Envelope", 0, 1, 0, help="Each note opens the filter and lets it close again (pluck, wah)."),
         Param("Wobble", 0, 0.9, 0, help="An LFO moving the cutoff up and down."),
         Param("Wobble rate", 0.1, 16, 2, "Hz", log=True, help="How fast it wobbles."),
@@ -376,7 +376,11 @@ class FilterBlock(EffectBlock):
             cutoff = self.opened
         # pojistka, ať se cutoff nedostane mimo rozumný rozsah (SVF by mohl blbnout)
         self.cutoff = Clip(cutoff, 20, 18000)
-        return SVF(flow, freq=self.cutoff, q=self.values["Resonance"], type=self.mode)
+        # SVF v pyo jde nahoru jen do ~7,3 kHz (sample rate / 6) a u tý hranice se při Resonance
+        # pod 1 rozkmitá do nekonečna (vyzkoušeno: šum přes High-pass 6 kHz, q 0.5 -> inf).
+        # tak q nepustím pod 1, i kdyby ve starým uloženým souboru bylo míň
+        self.q = Clip(self.values["Resonance"], 1, 10)
+        return SVF(flow, freq=self.cutoff, q=self.q, type=self.mode)
 
 
 class ShaperBlock(EffectBlock):
