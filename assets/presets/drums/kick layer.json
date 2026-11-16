@@ -1,0 +1,41 @@
+{
+ "instrument": {
+  "Attack": 0.0018293041587177346,
+  "Decay": 0.010000000000000007,
+  "Sustain": 0.03398058252427184,
+  "Release": 0.015750609987763942,
+  "Volume": 0.3300970873786408
+ },
+ "blocks": [
+  {
+   "block": "Noise",
+   "values": {
+    "Level": 0.2621359223300971
+   },
+   "extra": {},
+   "enabled": true
+  },
+  {
+   "block": "Filter",
+   "values": {
+    "Mode": 0,
+    "Cutoff": 5408.400329973078,
+    "Resonance": 1,
+    "Envelope": 0.01015228426395939,
+    "Wobble": 0,
+    "Wobble rate": 0.20430958207289038
+   },
+   "extra": {},
+   "enabled": true
+  },
+  {
+   "block": "Distortion",
+   "values": {
+    "Drive": 20.48051747726113,
+    "Mix": 0.17475728155339806
+   },
+   "extra": {},
+   "enabled": true
+  }
+ ]
+}
