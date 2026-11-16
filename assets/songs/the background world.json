@@ -1,0 +1,1147 @@
+{
+ "tempo": 154,
+ "bars": 48,
+ "tracks": [
+  {
+   "name": "Kick",
+   "muted": false,
+   "current": "A",
+   "view_low": 6,
+   "instrument": {
+    "Attack": 0.0018293041587177346,
+    "Decay": 0.3005169858041984,
+    "Sustain": 0.41262135922330095,
+    "Release": 0.24841299682536566,
+    "Volume": 1
+   },
+   "automation": {},
+   "blocks": [
+    {
+     "block": "Oscillator",
+     "values": {
+      "Wave": 0,
+      "Octave": 0,
+      "Detune": 0.0,
+      "Pitch drop": 18,
+      "Drop time": 0.06,
+      "Brightness": 0.3058252427184466,
+      "Level": 0.5
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Oscillator",
+     "values": {
+      "Wave": 0,
+      "Octave": 0,
+      "Detune": 4.854368932038838,
+      "Pitch drop": 0,
+      "Drop time": 0.02734596186875598,
+      "Brightness": 0.10679611650485436,
+      "Level": 0.5
+     },
+     "extra": {},
+     "enabled": false,
+     "automation": {}
+    },
+    {
+     "block": "Distortion",
+     "values": {
+      "Drive": 12.499936832346672,
+      "Mix": 0.24271844660194175
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Filter",
+     "values": {
+      "Mode": 0,
+      "Cutoff": 312.75535393590764,
+      "Resonance": 0.5,
+      "Envelope": 0.3592233009708738,
+      "Wobble": 0.4456310679611651,
+      "Wobble rate": 6.755127924427299
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    }
+   ],
+   "patterns": {
+    "A": {
+     "bars": 2,
+     "notes": [
+      [
+       0,
+       26,
+       2,
+       100
+      ],
+      [
+       8,
+       26,
+       2,
+       100
+      ],
+      [
+       16,
+       26,
+       1,
+       100
+      ],
+      [
+       18,
+       26,
+       1,
+       100
+      ],
+      [
+       20,
+       26,
+       1,
+       100
+      ],
+      [
+       22,
+       26,
+       1,
+       100
+      ],
+      [
+       4,
+       50,
+       3,
+       100
+      ],
+      [
+       20,
+       39,
+       3,
+       100
+      ],
+      [
+       26,
+       39,
+       3,
+       100
+      ]
+     ]
+    },
+    "B": {
+     "bars": 1,
+     "notes": []
+    },
+    "C": {
+     "bars": 1,
+     "notes": []
+    },
+    "D": {
+     "bars": 1,
+     "notes": []
+    },
+    "E": {
+     "bars": 1,
+     "notes": []
+    },
+    "F": {
+     "bars": 1,
+     "notes": []
+    },
+    "G": {
+     "bars": 1,
+     "notes": []
+    },
+    "H": {
+     "bars": 1,
+     "notes": []
+    }
+   },
+   "arrangement": {
+    "0": "A",
+    "1": "A",
+    "2": "A",
+    "5": "A",
+    "4": "A",
+    "3": "A",
+    "9": "A",
+    "7": "A",
+    "6": "A",
+    "16": "A",
+    "15": "A",
+    "14": "A",
+    "13": "A",
+    "12": "A",
+    "11": "A",
+    "10": "A",
+    "8": "A"
+   }
+  },
+  {
+   "name": "hi-hat",
+   "muted": false,
+   "current": "A",
+   "view_low": 48,
+   "instrument": {
+    "Attack": 0.006605367730498038,
+    "Decay": 0.09493438690858268,
+    "Sustain": 0.04568527918781726,
+    "Release": 0.05643666825173523,
+    "Volume": 0.25728155339805825
+   },
+   "automation": {},
+   "blocks": [
+    {
+     "block": "Noise",
+     "values": {
+      "Level": 0.34517766497461927
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Filter",
+     "values": {
+      "Mode": 2,
+      "Cutoff": 946.579073817944,
+      "Resonance": 1.6091370558375635,
+      "Envelope": 0,
+      "Wobble": 0,
+      "Wobble rate": 2
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Distortion",
+     "values": {
+      "Drive": 25.722314986344767,
+      "Mix": 0.2524271844660194
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    }
+   ],
+   "patterns": {
+    "A": {
+     "bars": 1,
+     "notes": []
+    },
+    "B": {
+     "bars": 1,
+     "notes": []
+    },
+    "C": {
+     "bars": 1,
+     "notes": []
+    },
+    "D": {
+     "bars": 1,
+     "notes": []
+    },
+    "E": {
+     "bars": 1,
+     "notes": []
+    },
+    "F": {
+     "bars": 1,
+     "notes": []
+    },
+    "G": {
+     "bars": 1,
+     "notes": []
+    },
+    "H": {
+     "bars": 1,
+     "notes": []
+    }
+   },
+   "arrangement": {}
+  },
+  {
+   "name": "Snare",
+   "muted": false,
+   "current": "A",
+   "view_low": 79,
+   "instrument": {
+    "Attack": 0.007869440493507695,
+    "Decay": 0.13265274456969098,
+    "Sustain": 0,
+    "Release": 0.02585960739643635,
+    "Volume": 0.6954314720812182
+   },
+   "automation": {},
+   "blocks": [
+    {
+     "block": "Noise",
+     "values": {
+      "Level": 0.7918781725888325
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Filter",
+     "values": {
+      "Mode": 1,
+      "Cutoff": 1392.0972949491945,
+      "Resonance": 1.0786802030456855,
+      "Envelope": 0,
+      "Wobble": 0,
+      "Wobble rate": 0.13775106028909007
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Reverb",
+     "values": {
+      "Size": 0.10152284263959391,
+      "Damping": 0.2131979695431472,
+      "Mix": 0.23857868020304568
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    }
+   ],
+   "patterns": {
+    "A": {
+     "bars": 1,
+     "notes": [
+      [
+       4,
+       103,
+       1,
+       100
+      ],
+      [
+       12,
+       103,
+       1,
+       100
+      ]
+     ]
+    },
+    "B": {
+     "bars": 1,
+     "notes": []
+    },
+    "C": {
+     "bars": 1,
+     "notes": []
+    },
+    "D": {
+     "bars": 1,
+     "notes": []
+    },
+    "E": {
+     "bars": 1,
+     "notes": []
+    },
+    "F": {
+     "bars": 1,
+     "notes": []
+    },
+    "G": {
+     "bars": 1,
+     "notes": []
+    },
+    "H": {
+     "bars": 1,
+     "notes": []
+    }
+   },
+   "arrangement": {
+    "0": "A",
+    "1": "A",
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "10": "A",
+    "9": "A",
+    "8": "A",
+    "7": "A",
+    "6": "A",
+    "11": "A",
+    "16": "A",
+    "15": "A",
+    "14": "A",
+    "13": "A",
+    "12": "A"
+   }
+  },
+  {
+   "name": "synth",
+   "muted": false,
+   "current": "A",
+   "view_low": 12,
+   "instrument": {
+    "Attack": 0.017437599391784804,
+    "Decay": 0.5222336459047925,
+    "Sustain": 0.2971698113207547,
+    "Release": 0.1553682951693885,
+    "Volume": 0.18932038834951456
+   },
+   "automation": {},
+   "blocks": [
+    {
+     "block": "Oscillator",
+     "values": {
+      "Wave": 1,
+      "Octave": -1,
+      "Detune": 0.0,
+      "Pitch drop": 0,
+      "Drop time": 0.06,
+      "Brightness": 1,
+      "Level": 0.5990566037735849
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Oscillator",
+     "values": {
+      "Wave": 2,
+      "Octave": 0,
+      "Detune": -6.796116504854368,
+      "Pitch drop": 0,
+      "Drop time": 0.03270115610291635,
+      "Brightness": 1,
+      "Level": 0.39805825242718446
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Filter",
+     "values": {
+      "Mode": 0,
+      "Cutoff": 126.47388794549911,
+      "Resonance": 1.145631067961165,
+      "Envelope": 0.23475728155339812,
+      "Wobble": 0.3800970873786408,
+      "Wobble rate": 0.6666073388423075
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Distortion",
+     "values": {
+      "Drive": 11.367649704951152,
+      "Mix": 0.7518446601941747
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    }
+   ],
+   "patterns": {
+    "A": {
+     "bars": 2,
+     "notes": [
+      [
+       4,
+       62,
+       4,
+       100
+      ],
+      [
+       20,
+       50,
+       3,
+       100
+      ],
+      [
+       26,
+       50,
+       3,
+       100
+      ],
+      [
+       22,
+       33,
+       1,
+       100
+      ],
+      [
+       16,
+       33,
+       1,
+       100
+      ],
+      [
+       18,
+       33,
+       1,
+       100
+      ],
+      [
+       20,
+       33,
+       1,
+       100
+      ]
+     ]
+    },
+    "B": {
+     "bars": 2,
+     "notes": []
+    },
+    "C": {
+     "bars": 1,
+     "notes": []
+    },
+    "D": {
+     "bars": 1,
+     "notes": []
+    },
+    "E": {
+     "bars": 1,
+     "notes": []
+    },
+    "F": {
+     "bars": 1,
+     "notes": []
+    },
+    "G": {
+     "bars": 1,
+     "notes": []
+    },
+    "H": {
+     "bars": 1,
+     "notes": []
+    }
+   },
+   "arrangement": {
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "0": "A",
+    "1": "A",
+    "5": "A",
+    "10": "A",
+    "9": "A",
+    "8": "A",
+    "7": "A",
+    "6": "A",
+    "11": "A",
+    "16": "A",
+    "15": "A",
+    "14": "A",
+    "13": "A",
+    "12": "A"
+   }
+  },
+  {
+   "name": "triplet",
+   "muted": false,
+   "current": "A",
+   "view_low": 29,
+   "instrument": {
+    "Attack": 0.01,
+    "Decay": 0.07226573502738295,
+    "Sustain": 0.470873786407767,
+    "Release": 0.5775422094523281,
+    "Volume": 0.5145631067961165
+   },
+   "automation": {},
+   "blocks": [
+    {
+     "block": "Oscillator",
+     "values": {
+      "Wave": 1,
+      "Octave": -1,
+      "Detune": 17.475728155339795,
+      "Pitch drop": 0,
+      "Drop time": 0.013372530349989444,
+      "Brightness": 0.33495145631067963,
+      "Level": 0.9660194174757282
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Oscillator",
+     "values": {
+      "Wave": 2,
+      "Octave": -1,
+      "Detune": 0.9708737864077648,
+      "Pitch drop": 0,
+      "Drop time": 0.019997277522234538,
+      "Brightness": 0.5631067961165048,
+      "Level": 0.41262135922330095
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Distortion",
+     "values": {
+      "Drive": 14.829778459015346,
+      "Mix": 0.33495145631067963
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Filter",
+     "values": {
+      "Mode": 2,
+      "Cutoff": 500.1361516878881,
+      "Resonance": 1,
+      "Envelope": 0,
+      "Wobble": 0.4325242718446602,
+      "Wobble rate": 2
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    }
+   ],
+   "patterns": {
+    "A": {
+     "bars": 4,
+     "notes": [
+      [
+       18,
+       46,
+       1,
+       100
+      ],
+      [
+       16,
+       46,
+       1,
+       100
+      ],
+      [
+       20,
+       46,
+       1,
+       100
+      ],
+      [
+       22,
+       46,
+       1,
+       100
+      ]
+     ]
+    },
+    "B": {
+     "bars": 1,
+     "notes": []
+    },
+    "C": {
+     "bars": 1,
+     "notes": []
+    },
+    "D": {
+     "bars": 1,
+     "notes": []
+    },
+    "E": {
+     "bars": 1,
+     "notes": []
+    },
+    "F": {
+     "bars": 1,
+     "notes": []
+    },
+    "G": {
+     "bars": 1,
+     "notes": []
+    },
+    "H": {
+     "bars": 1,
+     "notes": []
+    }
+   },
+   "arrangement": {
+    "6": "A",
+    "7": "A"
+   }
+  },
+  {
+   "name": "juice",
+   "muted": false,
+   "current": "A",
+   "view_low": 30,
+   "instrument": {
+    "Attack": 0.01,
+    "Decay": 0.8562448151789933,
+    "Sustain": 0.6407766990291263,
+    "Release": 0.12165657277701522,
+    "Volume": 0.5097087378640777
+   },
+   "automation": {},
+   "blocks": [
+    {
+     "block": "Oscillator",
+     "values": {
+      "Wave": 1,
+      "Octave": 0,
+      "Detune": 0,
+      "Pitch drop": 0,
+      "Drop time": 0.03824056249417689,
+      "Brightness": 0.8300970873786407,
+      "Level": 0.616504854368932
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Oscillator",
+     "values": {
+      "Wave": 2,
+      "Octave": -1,
+      "Detune": -7.7669902912621325,
+      "Pitch drop": 6,
+      "Drop time": 0.016722490999429473,
+      "Brightness": 0.7572815533980582,
+      "Level": 0.529126213592233
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Filter",
+     "values": {
+      "Mode": 2,
+      "Cutoff": 4573.548581426243,
+      "Resonance": 3.95873786407767,
+      "Envelope": 0.16990291262135923,
+      "Wobble": 0.20533980582524272,
+      "Wobble rate": 0.7177429333958436
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Filter",
+     "values": {
+      "Mode": 2,
+      "Cutoff": 4135.842352648517,
+      "Resonance": 2.9441747572815533,
+      "Envelope": 0.38349514563106796,
+      "Wobble": 0.270873786407767,
+      "Wobble rate": 0.18975354610768527
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Distortion",
+     "values": {
+      "Drive": 1.7345043324438618,
+      "Mix": 0.32038834951456313
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Oscillator",
+     "values": {
+      "Wave": 0,
+      "Octave": -1,
+      "Detune": 13.592233009708735,
+      "Pitch drop": 0,
+      "Drop time": 0.07151035467357496,
+      "Brightness": 0.5728155339805825,
+      "Level": 0.5
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Filter",
+     "values": {
+      "Mode": 2,
+      "Cutoff": 534.8284011664863,
+      "Resonance": 4.881067961165049,
+      "Envelope": 0.4563106796116505,
+      "Wobble": 0.1966019417475728,
+      "Wobble rate": 0.4385071650511638
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    }
+   ],
+   "patterns": {
+    "A": {
+     "bars": 2,
+     "notes": [
+      [
+       27,
+       54,
+       3,
+       30
+      ],
+      [
+       29,
+       52,
+       3,
+       35
+      ],
+      [
+       16,
+       45,
+       7,
+       58
+      ],
+      [
+       23,
+       57,
+       4,
+       32
+      ],
+      [
+       0,
+       51,
+       5,
+       100
+      ],
+      [
+       5,
+       47,
+       1,
+       100
+      ],
+      [
+       6,
+       45,
+       1,
+       100
+      ],
+      [
+       7,
+       43,
+       1,
+       100
+      ],
+      [
+       5,
+       41,
+       11,
+       100
+      ]
+     ]
+    },
+    "B": {
+     "bars": 1,
+     "notes": []
+    },
+    "C": {
+     "bars": 1,
+     "notes": []
+    },
+    "D": {
+     "bars": 1,
+     "notes": []
+    },
+    "E": {
+     "bars": 1,
+     "notes": []
+    },
+    "F": {
+     "bars": 1,
+     "notes": []
+    },
+    "G": {
+     "bars": 1,
+     "notes": []
+    },
+    "H": {
+     "bars": 1,
+     "notes": []
+    }
+   },
+   "arrangement": {
+    "2": "A",
+    "3": "A",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A",
+    "1": "A",
+    "0": "A",
+    "8": "A",
+    "9": "A",
+    "10": "A",
+    "11": "A",
+    "16": "A",
+    "15": "A",
+    "14": "A",
+    "13": "A",
+    "12": "A"
+   }
+  },
+  {
+   "name": "string/train",
+   "muted": false,
+   "current": "A",
+   "view_low": 103,
+   "instrument": {
+    "Attack": 0.01,
+    "Decay": 0.3,
+    "Sustain": 0.7,
+    "Release": 0.4,
+    "Volume": 0.4174757281553398
+   },
+   "automation": {},
+   "blocks": [
+    {
+     "block": "Oscillator",
+     "values": {
+      "Wave": 0,
+      "Octave": -1,
+      "Detune": 0,
+      "Pitch drop": 0,
+      "Drop time": 0.05099729840099487,
+      "Brightness": 1,
+      "Level": 0.6310679611650486
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Oscillator",
+     "values": {
+      "Wave": 0,
+      "Octave": 0,
+      "Detune": -18.446601941747574,
+      "Pitch drop": 5,
+      "Drop time": 0.02338471271155489,
+      "Brightness": 0.46116504854368934,
+      "Level": 0.5631067961165048
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Filter",
+     "values": {
+      "Mode": 0,
+      "Cutoff": 4276.880177049684,
+      "Resonance": 0.8228155339805825,
+      "Envelope": 0.4174757281553398,
+      "Wobble": 0.15728155339805827,
+      "Wobble rate": 0.3513016502279264
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Reverb",
+     "values": {
+      "Size": 0.8,
+      "Damping": 0.5,
+      "Mix": 0.558252427184466
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Distortion",
+     "values": {
+      "Drive": 3.436234298214636,
+      "Mix": 0.8349514563106796
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Filter",
+     "values": {
+      "Mode": 0,
+      "Cutoff": 723.2399755745793,
+      "Resonance": 1.4684466019417477,
+      "Envelope": 0.13592233009708737,
+      "Wobble": 0.06553398058252427,
+      "Wobble rate": 2.648794941255103
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Oscillator",
+     "values": {
+      "Wave": 0,
+      "Octave": -1,
+      "Detune": -42.71844660194175,
+      "Pitch drop": 0,
+      "Drop time": 0.052293366566665014,
+      "Brightness": 0.07281553398058252,
+      "Level": 0.3446601941747573
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Filter",
+     "values": {
+      "Mode": 0,
+      "Cutoff": 1414.3098263255529,
+      "Resonance": 1.099514563106796,
+      "Envelope": 0.10679611650485436,
+      "Wobble": 0.048058252427184464,
+      "Wobble rate": 0.3876846770211011
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Reverb",
+     "values": {
+      "Size": 0.8252427184466019,
+      "Damping": 0,
+      "Mix": 0.7281553398058253
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Delay",
+     "values": {
+      "Time": 0.0894366312474582,
+      "Feedback": 0.4611650485436893,
+      "Mix": 0.5485436893203883
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    },
+    {
+     "block": "Distortion",
+     "values": {
+      "Drive": 11.153810330988389,
+      "Mix": 0.23300970873786409
+     },
+     "extra": {},
+     "enabled": true,
+     "automation": {}
+    }
+   ],
+   "patterns": {
+    "A": {
+     "bars": 4,
+     "notes": [
+      [
+       0,
+       86,
+       64,
+       70
+      ]
+     ]
+    },
+    "B": {
+     "bars": 4,
+     "notes": [
+      [
+       0,
+       77,
+       64,
+       100
+      ],
+      [
+       0,
+       86,
+       64,
+       100
+      ]
+     ]
+    },
+    "C": {
+     "bars": 1,
+     "notes": []
+    },
+    "D": {
+     "bars": 1,
+     "notes": []
+    },
+    "E": {
+     "bars": 1,
+     "notes": []
+    },
+    "F": {
+     "bars": 1,
+     "notes": []
+    },
+    "G": {
+     "bars": 1,
+     "notes": []
+    },
+    "H": {
+     "bars": 1,
+     "notes": []
+    }
+   },
+   "arrangement": {
+    "13": "B",
+    "14": "B",
+    "12": "B",
+    "16": "B",
+    "15": "B",
+    "4": "A",
+    "5": "A",
+    "6": "A",
+    "7": "A",
+    "11": "B",
+    "10": "B",
+    "9": "B",
+    "8": "B"
+   }
+  }
+ ],
+ "visual": [
+  {
+   "layer": "Glow",
+   "values": {
+    "Amount": 0.8,
+    "Radius": 10,
+    "React to": 0,
+    "Reaction": 1
+   },
+   "enabled": true
+  }
+ ],
+ "light": {
+  "Brightness": 1,
+  "Smoothing": 0.6,
+  "Address": 1,
+  "Universe": 0
+ }
+}
