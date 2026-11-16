@@ -44,7 +44,6 @@ class Adjustable:
     def __init__(self):
         # na začátku má každej slider svou default hodnotu, klíč je popisek
         self.settings = {p.label: p.default for p in self.PARAMS}
-        self.automation = {}    # popisek -> {takt: hodnota}, viz song.py (prázdný = nic se nehýbe samo)
 
     def get(self, label: str) -> float:
         return self.settings[label]

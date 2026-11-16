@@ -11,15 +11,14 @@ poslaný z jeho zpětnýho volání ve zvukovým vlákně pyo zahodí.)
 
 Dva režimy:
     Loop  každá stopa dokola hraje svůj právě editovanej pattern (na zkoušení)
-    Song  hraje se aranžmá z časový osy od start_bar do konce, pak znova,
-          a navíc se podle časový osy mění automatizovaný slidery
+    Song  hraje se aranžmá z časový osy od start_bar do konce, pak znova
 """
 
 import threading
 import time
 import traceback
 
-from sirens.song import BEATS_PER_BAR, TICKS_PER_BAR, lane_value
+from sirens.song import BEATS_PER_BAR, TICKS_PER_BAR
 
 
 class Player:
@@ -119,8 +118,6 @@ class Player:
                 # kratší pattern se ve smyčce opakuje (1taktovej 4x ve 4taktový smyčce)
                 tick_in_pattern = self.tick % (pattern.bars * TICKS_PER_BAR)
             else:
-                # automatizace jede i u ztlumený stopy, mute jen nepouští noty
-                self._automate(track, bar + tick_in_bar / TICKS_PER_BAR)
                 found = track.pattern_at_bar(bar)
                 if found is None:
                     continue                       # v tomhle taktu stopa nemá nic
@@ -147,16 +144,6 @@ class Player:
                 self.engine.send_note(channel, note.pitch, note.velocity)
                 # vypnutí si poznamenáme: délka v krocích převedená na tiky
                 self.pending.append([note.length * per_step, channel, note.pitch])
-
-    def _automate(self, track, position: float):
-        """Nastaví automatizovaný slidery stopy podle místa v písni (v taktech)."""
-        for owner in track.automated_owners():
-            # list(): uživatel může automatizaci zrovna kreslit (měnit slovník) v jiným vlákně
-            for label, lane in list(owner.automation.items()):
-                value = lane_value(lane, position)
-                # 1e-6 = skoro nula: když se hodnota nezměnila, zbytečně ji neposílat
-                if value is not None and abs(value - owner.get(label)) > 1e-6:
-                    owner.set(label, value)
 
     def close(self):
         self.stop()

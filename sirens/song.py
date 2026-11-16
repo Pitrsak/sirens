@@ -1,4 +1,4 @@
-"""Píseň: stopy, patterny s notama, aranžmá na časový ose a automatizace sliderů.
+"""Píseň: stopy, patterny s notama a aranžmá na časový ose.
 
     Song
      ├─ tempo (BPM), délka časový osy v taktech
@@ -17,9 +17,6 @@ tempo v BPM říká, kolik dob je za minutu, takže doba trvá 60 / tempo sekund
 Přehrávač ale tiká jemnějc: TICKS_PER_BAR = 48 tiků na takt, takže jeden krok
 mřížky jsou 3 tiky. (Dřív tu byly i trioly s jiným počtem kroků na takt,
 ty jsme zahodili, ať je to jednodušší.)
-
-Automatizace patří k nástroji a k blokům (owner.automation): pro každej slider
-slovník takt -> hodnota, a mezi zadanýma taktama se hodnota plynule mění.
 """
 
 from dataclasses import dataclass
@@ -73,10 +70,6 @@ class Track:
         self.muted = False
         self.view_low = 48          # nejnižší nota zobrazená v editoru patternu (C3), jen pohled
 
-    def automated_owners(self):
-        """Nástroj a jeho bloky: všechno, co může mít automatizovaný slidery."""
-        return [self.instrument] + self.instrument.rack.blocks
-
     def pattern_at_bar(self, bar: int):
         """Pattern a takt uvnitř něj, kterej stopa hraje v daným taktu písně (nebo None).
 
@@ -127,23 +120,3 @@ class Song:
     def outputs(self):
         """Výstupy všech nástrojů pro mix v enginu."""
         return [track.instrument.output for track in self.tracks]
-
-
-def lane_value(lane: dict, position: float):
-    """Hodnota automatizace v daným místě (v taktech, např. 3.5 = půlka 4. taktu).
-
-    Hodnota zadaná pro takt platí na jeho začátku, mezi dvěma zadanýma taktama
-    se mění lineárně (rovnou čarou), před prvním a za posledním zůstává stejná.
-    Prázdná lane = None.
-    """
-    if not lane:
-        return None
-    bars = sorted(list(lane))
-    if position <= bars[0]:
-        return lane[bars[0]]
-    # zip(bars, bars[1:]) dá dvojice sousedů: (1. a 2.), (2. a 3.)...
-    for left, right in zip(bars, bars[1:]):
-        if left <= position < right:
-            t = (position - left) / (right - left)      # 0 = na levým bodu, 1 = na pravým
-            return lane[left] + t * (lane[right] - lane[left])
-    return lane[bars[-1]]

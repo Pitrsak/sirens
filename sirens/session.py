@@ -1,7 +1,7 @@
 """Ukládání a načítání práce do souboru JSON.
 
 Ukládá se jen to, co uživatel sám vytvořil: stopy (nástroj, bloky, patterny,
-aranžmá, automatizace) a vrstvy obrazu. JSON je obyčejnej
+aranžmá) a vrstvy obrazu. JSON je obyčejnej
 text, dá se klidně otevřít i v textovým editoru.
 
 Autosave: hlavní okno každý 2 s zapíše aktuální stav do AUTOSAVE (když se
@@ -27,24 +27,15 @@ LAYERS_BY_NAME = {layer_class.NAME: layer_class for layer_class in LAYERS}
 
 # ---- UKLÁDÁNÍ ----
 
-def _lanes(automation: dict) -> dict:
-    """Automatizace pro JSON: klíče slovníku tam musí bejt text, takže takt jako "3".
-    Prázdný lane se vůbec neukládaj."""
-    return {label: {str(bar): value for bar, value in lane.items()}
-            for label, lane in automation.items() if lane}
-
-
 def sound_of(track) -> dict:
-    """Zvuk stopy: obálka a bloky nástroje se slidery a automatizacema."""
+    """Zvuk stopy: obálka a bloky nástroje se slidery."""
     instrument = track.instrument
     return {
         "instrument": dict(instrument.settings),    # dict(): kopie, ne odkaz na živý nastavení
-        "automation": _lanes(instrument.automation),
         "blocks": [{"block": block.NAME,
                     "values": {p.label: block.get(p.label) for p in block.PARAMS},
                     "extra": block.extra(),         # něco navíc mimo slidery (např. cesta k samplu)
-                    "enabled": block.enabled,
-                    "automation": _lanes(block.automation)}
+                    "enabled": block.enabled}
                    for block in instrument.rack.blocks],
     }
 
@@ -55,7 +46,7 @@ def _track(track) -> dict:
         "muted": track.muted,
         "current": track.current,
         "view_low": track.view_low,
-        **sound_of(track),          # ** vysype sem všechny klíče ze sound_of (instrument, automation, blocks)
+        **sound_of(track),          # ** vysype sem všechny klíče ze sound_of (instrument, blocks)
         # nota jako [krok, výška, délka, síla]; krok = šestnáctina (16 na takt)
         "patterns": {name: {"bars": pattern.bars,
                             "notes": [[n.step, n.pitch, n.length, n.velocity] for n in pattern.notes]}
@@ -84,19 +75,12 @@ def _set_values(owner, values: dict):
             owner.set(label, value)
 
 
-def _set_lanes(owner, lanes: dict):
-    # opačně než _lanes: z textovýho "3" zase číslo 3
-    owner.automation = {label: {int(bar): value for bar, value in lane.items()}
-                        for label, lane in lanes.items()}
-
-
 def apply_sound(track, data: dict):
     """Nastaví stopě zvuk ze slovníku (viz sound_of), její dosavadní bloky zahodí."""
     instrument = track.instrument
     instrument.rack.clear()
     # .get(klíč, výchozí): když klíč v souboru chybí, nespadne to, vezme se výchozí
     _set_values(instrument, data.get("instrument", {}))
-    _set_lanes(instrument, data.get("automation", {}))
     for item in data.get("blocks", []):
         block_class = BLOCKS_BY_NAME.get(item.get("block"))
         if block_class is None:
@@ -105,7 +89,6 @@ def apply_sound(track, data: dict):
         _set_values(block, item.get("values", {}))
         block.load_extra(item.get("extra", {}))
         block.enabled = item.get("enabled", True)
-        _set_lanes(block, item.get("automation", {}))
     instrument.rack.changed()        # znovu propojit, některý bloky mohly bejt uložený vypnutý
 
 

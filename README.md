@@ -6,8 +6,7 @@ a obraz, který na hudbu reaguje.
 - **Sound:** nástroj vybrané stopy. Zdroje (Oscillator, Noise, Sampler)
   a efekty (Filter, Distortion, Bitcrush, Delay, Reverb) pod sebou, obálka not.
   Hraje se na klávesnici počítače, myší na klaviatuře nebo na MIDI klávesnici.
-- **Song:** až 8 stop, každá s vlastním nástrojem. Patterny s notami, časová osa písně
-  a automatizace sliderů v čase.
+- **Song:** až 8 stop, každá s vlastním nástrojem. Patterny s notami a časová osa písně.
 - **Visual:** obraz složený z vrstev (tvary a efekty), které reagují na zvuk. Lze i přes celou obrazovku.
 
 Práce se ukládá sama (autosave) a otevře se při dalším spuštění; **Save / Open** ukládá do souboru.

@@ -76,7 +76,6 @@ class Block(Adjustable):
         # pro každej slider jeden SigTo, který začne rovnou na výchozí hodnotě (init=)
         self.values = {p.label: SigTo(p.default, time=SMOOTH_TIME, init=p.default)
                        for p in self.PARAMS}
-        self.automation = {}    # popisek -> {takt: hodnota}, viz song.py
         self.output = None
 
     def get(self, label: str) -> float:

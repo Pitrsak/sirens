@@ -82,7 +82,7 @@ class SoundPage(wx.Panel):
         wx.CallAfter(self.on_track_change, self.song.tracks[index])
 
     def _copy_sound(self):
-        # zkopíruje jen zvuk (obálku, bloky i jejich automatizace), noty ne
+        # zkopíruje jen zvuk (obálku a bloky), noty ne
         self.clipboard = session.sound_of(self.track)
         self.clipboard_name = self.track.name
         wx.CallAfter(self.refresh)          # ukáže tlačítko Paste sound
