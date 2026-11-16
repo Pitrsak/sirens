@@ -1,4 +1,4 @@
-"""Grafy vlevo: osciloskop, spektrum, náhled obrazu a světla, kreslený přes wx.GraphicsContext.
+"""Grafy vlevo: osciloskop, spektrum, náhled obrazu, kreslený přes wx.GraphicsContext.
 
 Všechny mají stejnej rámeček (zaoblenej, tenkej okraj, nadpis vlevo nahoře,
 údaj vpravo nahoře), liší se jen tím, co nakreslí dovnitř. Takže rámeček
@@ -188,25 +188,3 @@ class VisualView(GraphView):
         scale = min(w / bw, h / bh)          # celej obraz se musí vejít, tak menší z obou zvětšení
         dw, dh = bw * scale, bh * scale
         gc.DrawBitmap(self.bitmap, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh)   # na střed
-
-
-class LightView(GraphView):
-    """Náhled světla: kruh v barvě, kterou světlo právě svítí, a čísla R, G, B."""
-
-    def __init__(self, parent):
-        super().__init__(parent, "Light")
-        self.rgb = (0, 0, 0)
-
-    def show(self, rgb, address: int):
-        self.rgb = tuple(rgb)
-        r, g, b = self.rgb
-        # address = první DMX kanál světla, R, G, B jsou tři kanály za sebou
-        self.info = f"R {r}   G {g}   B {b}   channels {address}-{address + 2}"
-        self.Refresh(False)
-
-    def draw(self, gc, x, y, w, h):
-        radius = min(w, h) * 0.35
-        cx, cy = x + w / 2, y + h / 2
-        gc.SetPen(wx.Pen(theme.BORDER, 1))
-        gc.SetBrush(wx.Brush(wx.Colour(*self.rgb)))
-        gc.DrawEllipse(cx - radius, cy - radius, 2 * radius, 2 * radius)   # elipsa ve čtverci = kruh

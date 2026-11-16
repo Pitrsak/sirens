@@ -1,4 +1,4 @@
-"""Sirens - studio na zvuk, obraz a světlo v jednom.
+"""Sirens - studio na zvuk a obraz v jednom.
 
 tenhle soubor dělá ze složky sirens balíček (package), jinak tu skoro nic není.
 """

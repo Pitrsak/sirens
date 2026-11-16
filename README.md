@@ -1,7 +1,7 @@
 # Sirens
 
-Studio pro zvuk, obraz a světlo: nástroje, na které se hraje, píseň na časové ose,
-obraz a světlo, které na hudbu reagují.
+Studio pro zvuk a obraz: nástroje, na které se hraje, píseň na časové ose
+a obraz, který na hudbu reaguje.
 
 - **Sound:** nástroj vybrané stopy. Zdroje (Oscillator, Noise, Sampler)
   a efekty (Filter, Distortion, Bitcrush, Delay, Reverb) pod sebou, obálka not.
@@ -9,7 +9,6 @@ obraz a světlo, které na hudbu reagují.
 - **Song:** až 8 stop, každá s vlastním nástrojem. Patterny s notami, časová osa písně
   a automatizace sliderů v čase.
 - **Visual:** obraz složený z vrstev (tvary a efekty), které reagují na zvuk. Lze i přes celou obrazovku.
-- **Light:** RGB světlo řízené zvukem, posílané přes Art-Net.
 
 Práce se ukládá sama (autosave) a otevře se při dalším spuštění; **Save / Open** ukládá do souboru.
 

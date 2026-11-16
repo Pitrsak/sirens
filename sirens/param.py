@@ -1,7 +1,7 @@
 """Parametry, co jdou nastavit sliderem: popis jednoho slideru (Param)
 a základ pro všechno, co nějaký slidery má (Adjustable).
 
-Bloky zvuku, vrstvy obrazu i světlo mají seznam PARAMS (jaký slidery ukázat)
+Bloky zvuku a vrstvy obrazu mají seznam PARAMS (jaký slidery ukázat)
 a k tomu hodnoty, který ty slidery mění. UI je pak umí vykreslit všechny stejně,
 jednou funkcí (Sidebar.add_params), a nemusím psát panel pro každou věc zvlášť.
 """
@@ -36,7 +36,7 @@ def Choice(label: str, choices: tuple, default: int = 0, help: str = "") -> Para
 class Adjustable:
     """Něco, co se ovládá slidery: má PARAMS a jejich aktuální hodnoty (settings).
 
-    dědí z toho Instrument, Block, Layer i LightRig.
+    dědí z toho Instrument, Block i Layer.
     """
 
     PARAMS: list[Param] = []    # potomek si to přepíše svým seznamem, tady je prázdnej

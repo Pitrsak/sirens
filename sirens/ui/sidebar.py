@@ -4,7 +4,7 @@ Nahoře může bejt pevná část (třeba hlasitost výstupu), ta se neposouvá,
 pod ní je posuvná část: skupiny s nadpisem a pod sebou slidery, každej
 s krátkým vysvětlením.
 
-Důležitý: panel sám o zvuku, obrazu ani světle nic neví. Jen staví ovládací
+Důležitý: panel sám o zvuku ani obrazu nic neví. Jen staví ovládací
 prvky a když se něco změní, zavolá funkci, kterou mu někdo dal (on_change).
 Díky tomu je stejnej pro všechny záložky.
 
@@ -103,7 +103,7 @@ class Sidebar(wx.Panel):
         return slider
 
     def add_params(self, owner, fixed: bool = False):
-        """Slidery pro všechny PARAMS objektu owner (blok, obraz, světlo).
+        """Slidery pro všechny PARAMS objektu owner (blok zvuku, vrstva obrazu).
 
         Pohyb slideru zavolá owner.set(popisek, hodnota). Tohle je ten trik,
         proč panel nic neví o zvuku: jen projde seznam PARAMS a pro každej

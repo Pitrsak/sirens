@@ -1,7 +1,7 @@
 """Ukládání a načítání práce do souboru JSON.
 
 Ukládá se jen to, co uživatel sám vytvořil: stopy (nástroj, bloky, patterny,
-aranžmá, automatizace), vrstvy obrazu a nastavení světla. JSON je obyčejnej
+aranžmá, automatizace) a vrstvy obrazu. JSON je obyčejnej
 text, dá se klidně otevřít i v textovým editoru.
 
 Autosave: hlavní okno každý 2 s zapíše aktuální stav do AUTOSAVE (když se
@@ -64,7 +64,7 @@ def _track(track) -> dict:
     }
 
 
-def capture(song, painter, rig) -> dict:
+def capture(song, painter) -> dict:
     """Aktuální stav aplikace jako slovník (ready pro JSON)."""
     return {
         "tempo": song.tempo,
@@ -72,7 +72,6 @@ def capture(song, painter, rig) -> dict:
         "tracks": [_track(track) for track in song.tracks],
         "visual": [{"layer": layer.NAME, "values": dict(layer.settings), "enabled": layer.enabled}
                    for layer in painter.layers],
-        "light": dict(rig.settings),
     }
 
 
@@ -150,7 +149,7 @@ def _list(data: dict, key: str) -> list:
     return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
 
 
-def restore(data: dict, song, painter, rig):
+def restore(data: dict, song, painter):
     """Nastaví aplikaci podle uloženýho slovníku (píseň má vždycky aspoň jednu stopu)."""
     for track in list(song.tracks):      # list(): kopie, protože ze song.tracks během cyklu mažu
         song.remove_track(track)
@@ -171,7 +170,6 @@ def restore(data: dict, song, painter, rig):
             layer = painter.add(layer_class)
             _set_values(layer, item.get("values", {}))
             layer.enabled = item.get("enabled", True)
-    _set_values(rig, data.get("light", {}))
 
 
 def write(path: Path, data: dict):

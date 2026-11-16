@@ -22,7 +22,7 @@ N = 2048          # délka úseku (~46 ms při 44,1 kHz), rozlišení spektra = 
 SCOPE_VIEW = 512  # kolik vzorků ukáže osciloskop (~11,6 ms)
 DB_FLOOR = -90.0  # cokoliv tiššího beru jako ticho
 FALL_DB = 2.5     # o kolik dB smí špička ve spektru klesnout za jeden snímek spektra, tj. nový úsek (ať to nebliká)
-BASS, MID, HIGH = (20, 250), (250, 2000), (2000, 20000)   # pásma v Hz, podle nich reaguje obraz a světlo
+BASS, MID, HIGH = (20, 250), (250, 2000), (2000, 20000)   # pásma v Hz, podle nich reaguje obraz
 
 
 # engine si ho vyrobí jednou a GUI se ho pak každej snímek ptá, co je novýho
@@ -126,7 +126,7 @@ class Analyzer:
         return (k + shift) * self.sample_rate / self.size     # číslo koše (i s desetinou) krát šířka koše = Hz
 
     def band(self, lo_hz: float, hi_hz: float) -> float:
-        """Síla pásma lo..hi Hz jako číslo 0..1, podle kterýho pak reaguje obraz a světlo.
+        """Síla pásma lo..hi Hz jako číslo 0..1, podle kterýho pak reaguje obraz.
 
         Beru nejsilnější složku v pásmu (ne průměr): -60 dB a tišší = 0, 0 dB = 1,
         mezi tím rovnoměrně v dB.
@@ -136,5 +136,5 @@ class Analyzer:
         return min(1.0, max(0.0, (db + 60) / 60))     # -60..0 dB -> 0..1, a oříznout, ať to nevyleze ven
 
     def bands(self) -> tuple[float, float, float]:
-        """Basy, středy a výšky (každý 0..1), přesně takhle to chce obraz i světlo."""
+        """Basy, středy a výšky (každý 0..1), přesně takhle to chce obraz."""
         return self.band(*BASS), self.band(*MID), self.band(*HIGH)

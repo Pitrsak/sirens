@@ -2,9 +2,9 @@
 pod ní obsah tý záložky, která je zrovna vybraná.
 
     +---------------------------------------------------------------------------------+
-    | SIRENS  [Sound] [Song] [Visual] [Light]              [Open] [Save]  [Play]      |
+    | SIRENS  [Sound] [Song] [Visual]                      [Open] [Save]  [Play]      |
     +---------------------------------------------------------------------------------+
-    |  obsah záložky (SoundPage, SongPage, VisualPage nebo LightPage)                 |
+    |  obsah záložky (SoundPage, SongPage nebo VisualPage)                            |
     +---------------------------------------------------------------------------------+
 
 Okno drží píseň (Song), přehrávač (Player) a hraní na klávesnici (KeyboardPlayer),
@@ -26,7 +26,6 @@ from sirens.audio.player import Player
 from sirens.song import Song
 from sirens.ui import theme
 from sirens.ui.keys import KeyboardPlayer
-from sirens.ui.light_page import LightPage
 from sirens.ui.sidebar import divider
 from sirens.ui.song_page import SongPage
 from sirens.ui.sound_page import SoundPage
@@ -60,13 +59,12 @@ class MainFrame(wx.Frame):
         # (Panel umí pozadí a přeskakování tabulátorem, holej Frame ne).
         root = wx.Panel(self)
         root.SetBackgroundColour(theme.BACKGROUND)
-        # vyrobí se rovnou všechny čtyři záložky, vidět bude jen jedna (viz _select_tab)
+        # vyrobí se rovnou všechny tři záložky, vidět bude jen jedna (viz _select_tab)
         self.sound_page = SoundPage(root, engine, self.song, self.keys, self.select_track)
         self.song_page = SongPage(root, engine, self.song, self.player, self.select_track, self._tracks_changed)
         self.visual_page = VisualPage(root)
-        self.light_page = LightPage(root)
         self.pages = {"Sound": self.sound_page, "Song": self.song_page,
-                      "Visual": self.visual_page, "Light": self.light_page}
+                      "Visual": self.visual_page}
 
         # Sizer = neviditelnej skládač, sám spočítá, kam co dát a jak velký.
         # BoxSizer(VERTICAL) skládá pod sebe. Add(prvek, proportion, flagy):
@@ -102,9 +100,9 @@ class MainFrame(wx.Frame):
         row.Add(logo, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 24)
         row.AddSpacer(24)
         self.tabs = {}
-        for name in ("Sound", "Song", "Visual", "Light"):
+        for name in ("Sound", "Song", "Visual"):
             # n=name: lambda si musí zapamatovat tuhle záložku, ne poslední z cyklu
-            # (bez toho by všechny tlačítka přepínaly na Light)
+            # (bez toho by všechny tlačítka přepínaly na Visual)
             self.tabs[name] = PillButton(header, name, lambda n=name: self._select_tab(n))
             row.Add(self.tabs[name], 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
         row.AddStretchSpacer()           # pružina, odtlačí Open / Save / Play úplně doprava
@@ -150,17 +148,16 @@ class MainFrame(wx.Frame):
     # --- ukládání ---
 
     def _capture(self) -> dict:
-        # celej stav (píseň, obraz, světlo) jako slovník, ten jde pak do JSONu
-        return session.capture(self.song, self.visual_page.painter, self.light_page.rig)
+        # celej stav (píseň a obraz) jako slovník, ten jde pak do JSONu
+        return session.capture(self.song, self.visual_page.painter)
 
     def _apply(self, data: dict):
         """Nastaví všechno podle načtenejch dat a překreslí panely."""
         self.player.stop()
-        session.restore(data, self.song, self.visual_page.painter, self.light_page.rig)
+        session.restore(data, self.song, self.visual_page.painter)
         self.player.set_tempo(self.song.tempo)
         self.engine.play(self.song.outputs())   # stopy jsou nový objekty, takže znova do mixu
         self.visual_page.refresh()
-        self.light_page.refresh()
         self.select_track(self.song.tracks[0])
         self._show_playing()
 
@@ -213,7 +210,6 @@ class MainFrame(wx.Frame):
             self.song_page.tick()
         if self.visual_page.IsShown() or self.visual_page.fullscreen is not None:   # fullscreen jede i z jiný záložky
             self.visual_page.tick(analyzer, dt)
-        self.light_page.tick(analyzer)   # světlo svítí pořád, ať se díváš kamkoli
 
     def _on_activate(self, event):
         # okno ztratilo fokus (třeba Cmd+Tab jinam): puštění klávesy by sem už nedošlo,
@@ -230,6 +226,5 @@ class MainFrame(wx.Frame):
         self.keys.close()
         if self.visual_page.fullscreen is not None:
             self.visual_page.fullscreen.Destroy()
-        self.light_page.close()
         self.engine.close()
         event.Skip()                     # až teď nechat okno opravdu zavřít (bez Skip by zůstalo otevřený)

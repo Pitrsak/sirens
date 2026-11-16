@@ -1,7 +1,7 @@
 """ZVUKOVEJ ENGINE: pyo server a pevnej výstupní řetězec, kterým jde všechno do repráků.
 
     nástroje všech stop (součet) -> [zásuvka] -> hlasitost -> ořez -1..1 -> obě repro
-                                               \\-> analýza (osciloskop, spektrum, obraz, světlo)
+                                               \\-> analýza (osciloskop, spektrum, obraz)
 
 co hraje, se dá kdykoli vyměnit (po přidání nebo smazání stopy), zbytek
 řetězce zůstává. výměna proběhne s krátkým prolnutím, aby to necvaklo.
