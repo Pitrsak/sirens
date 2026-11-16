@@ -9,6 +9,9 @@ a obraz, který na hudbu reaguje.
 - **Song:** až 8 stop, každá s vlastním nástrojem. Patterny s notami a časová osa písně.
 - **Visual:** obraz složený z vrstev (tvary a efekty), které reagují na zvuk. Lze i přes celou obrazovku.
 
+Zvuk stopy jde uložit jako preset (**Preset: Save / Load** na záložce Sound), presety jsou
+v `assets/presets/` po složkách (drums, bass). Hotové písně jsou v `assets/songs/`.
+
 Práce se ukládá sama (autosave) a otevře se při dalším spuštění; **Save / Open** ukládá do souboru.
 
 ## Instalace a spuštění

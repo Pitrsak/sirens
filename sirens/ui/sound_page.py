@@ -4,6 +4,7 @@
     |  SCOPE (tvar vlny)                      | OUTPUT  Master     |
     |                                         | ------------------ |
     |  SPECTRUM (vlastní DFT)                 | TRACK  výběr stopy |
+    |                                         | PRESET Save / Load |
     |                                         | ENVELOPE           |
     |  [cesta zvuku: Oscillator -> Filter]    | bloky nástroje     |
     |  [klaviatura]                           | [Add block]        |
@@ -12,7 +13,14 @@
 Vlevo se jen kouká a hraje (grafy + klaviatura), vpravo v panelu se zvuk staví.
 Horní kus panelu (Output, Master, Keys) je fixní, zbytek se celej přestaví
 v refresh(), kdykoli se změní stopa nebo bloky.
+
+Preset = zvuk jedný stopy (obálka + bloky) uloženej do vlastního souboru,
+třeba assets/presets/drums/kick.json. Noty v něm nejsou, jen zvuk, takže
+se dá nahrát do jakýkoli stopy. Složky (drums, bass...) si člověk dělá sám
+přímo v dialogu pro uložení.
 """
+
+from pathlib import Path
 
 import wx
 
@@ -25,6 +33,10 @@ from sirens.ui.sidebar import Sidebar, divider
 from sirens.ui.stack_editor import StackEditor
 from sirens.ui.views import ScopeView, SpectrumView
 from sirens.ui.widgets import StatusPill, confirm
+
+# složka s presety: parents[2] = ui -> sirens -> kořen projektu
+PRESET_FOLDER = Path(__file__).resolve().parents[2] / "assets" / "presets"
+PRESET_TYPES = "Sound presets (*.json)|*.json"   # filtr do dialogu: ukáže jen .json
 
 
 class SoundPage(wx.Panel):
@@ -94,6 +106,33 @@ class SoundPage(wx.Panel):
             session.apply_sound(self.track, self.clipboard)
             wx.CallAfter(self.refresh)
 
+    def _save_preset(self):
+        """Uloží zvuk vybraný stopy do souboru (stejnej slovník jako u Copy sound)."""
+        # "/" ve jménu souboru nejde (to je oddělovač složek), tak ho nahradím pomlčkou
+        name = self.track.name.replace("/", "-") + ".json"
+        with wx.FileDialog(self, "Save preset", str(PRESET_FOLDER), name, PRESET_TYPES,
+                           wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as dialog:
+            if dialog.ShowModal() == wx.ID_OK:
+                session.write(Path(dialog.GetPath()), session.sound_of(self.track))
+
+    def _load_preset(self):
+        """Nahradí zvuk vybraný stopy presetem ze souboru (noty a časová osa zůstanou)."""
+        with wx.FileDialog(self, "Load preset", str(PRESET_FOLDER), "", PRESET_TYPES,
+                           wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            try:
+                data = session.read(Path(dialog.GetPath()))
+            except (OSError, ValueError) as error:
+                wx.MessageBox(f"Cannot open this file:\n{error}", "Load preset", wx.ICON_ERROR, self)
+                return
+        # preset má klíč "blocks" s bloky zvuku; celá píseň (Save na hlavní liště) ho nemá
+        if not isinstance(data, dict) or "blocks" not in data:
+            wx.MessageBox("This file is not a sound preset.", "Load preset", wx.ICON_ERROR, self)
+            return
+        session.apply_sound(self.track, data)
+        wx.CallAfter(self.refresh)
+
     def _rename(self, text: str):
         # prázdný jméno nechci, tak když je text prázdnej, nechá se starý
         self.track.name = text or self.track.name
@@ -115,6 +154,9 @@ class SoundPage(wx.Panel):
         sidebar.add_text("Name", self.track.name, self._rename)
         if self.clipboard is not None:
             sidebar.add_note(f"Copied sound: {self.clipboard_name}. Select another track and click Paste sound.")
+        # presety: zvuk do souboru a zpátky
+        sidebar.add_group("Preset", actions=[("Save", self._save_preset), ("Load", self._load_preset)])
+        sidebar.add_note("Save this sound to a file (for example drums/kick) and load it into any track.")
         # obálka (Attack, Decay, Sustain, Release, Volume) = slidery nástroje
         sidebar.add_group("Envelope")
         sidebar.add_params(self.track.instrument)
