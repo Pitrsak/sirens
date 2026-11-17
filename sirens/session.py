@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 
 from sirens.audio.blocks import CATALOG as BLOCKS
-from sirens.song import MAX_BARS, MIN_BARS, STEPS_PER_BAR, Note, Pattern
+from sirens.song import GRIDS, MAX_BARS, MIN_BARS, STEPS_PER_BAR, Note, Pattern
 from sirens.visual.layers import CATALOG as LAYERS
 
 AUTOSAVE = Path.home() / ".sirens" / "autosave.json"      # ~/.sirens/autosave.json, v domovský složce
@@ -47,8 +47,8 @@ def _track(track) -> dict:
         "current": track.current,
         "view_low": track.view_low,
         **sound_of(track),          # ** vysype sem všechny klíče ze sound_of (instrument, blocks)
-        # nota jako [krok, výška, délka, síla]; krok = šestnáctina (16 na takt)
-        "patterns": {name: {"bars": pattern.bars,
+        # nota jako [krok, výška, délka, síla]; krok = jeden krok mřížky patternu (grid: 16 nebo 48 na takt)
+        "patterns": {name: {"bars": pattern.bars, "grid": pattern.grid,
                             "notes": [[n.step, n.pitch, n.length, n.velocity] for n in pattern.notes]}
                      for name, pattern in track.patterns.items()},
         "arrangement": {str(bar): name for bar, name in track.arrangement.items()},
@@ -101,10 +101,11 @@ def _restore_track(track, data: dict):
     for name, item in data.get("patterns", {}).items():
         if name in track.patterns:
             # starší soubory: bez "grid" (= šestnáctiny) a noty jen [krok, výška, délka] (síla pak 100)
-            pattern = Pattern(item.get("bars", 1))
-            # trioly už nejsou, starý soubor s gridem 12 nebo 24 přepočítáme na šestnáctiny
-            old_grid = item.get("grid", 16)
-            scale = STEPS_PER_BAR / old_grid
+            grid = item.get("grid", STEPS_PER_BAR)
+            # 16 a 48 umíme, starý trioly (grid 12 nebo 24) už ne, ty přepočítáme na šestnáctiny
+            new_grid = grid if grid in GRIDS else STEPS_PER_BAR
+            pattern = Pattern(item.get("bars", 1), new_grid)
+            scale = new_grid / grid
             # Note(*note): seznam [krok, výška, délka, síla] se rozbalí do argumentů
             pattern.notes = [Note(round(n[0] * scale), n[1], max(1, round(n[2] * scale)), *n[3:])
                              for n in item.get("notes", [])]

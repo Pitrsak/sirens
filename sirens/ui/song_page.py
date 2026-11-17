@@ -15,7 +15,7 @@ je jen poskládá a vpravo dá panel s nastavením (tempo, délka, stopy...).
 import wx
 
 from sirens import session
-from sirens.song import BEATS_PER_BAR, MAX_BARS, MAX_TRACKS, MIN_BARS, PATTERN_NAMES, Pattern
+from sirens.song import BEATS_PER_BAR, GRIDS, MAX_BARS, MAX_TRACKS, MIN_BARS, PATTERN_NAMES, Note, Pattern
 from sirens.ui import theme
 from sirens.ui.pattern_view import PatternView
 from sirens.ui.sidebar import Sidebar, divider
@@ -94,6 +94,9 @@ class SongPage(wx.Panel):
         pattern = self.track.patterns[self.track.current]
         s.add_choice("Length", tuple(f"{b} bar" for b in BAR_CHOICES), BAR_CHOICES.index(pattern.bars),
                      self._set_length)
+        s.add_choice("Grid", ("16ths", "Fine"), GRIDS.index(pattern.grid), self._set_grid,
+                     help="Fine = 48 steps per bar (3 per 16th), for lines played loosely by hand "
+                          "that do not fit the 16th grid.")
         s.add_button("Clear pattern", self._clear_pattern)
         if len(self.song.tracks) < MAX_TRACKS:
             s.add_button("Add track", self._add_track)
@@ -147,10 +150,28 @@ class SongPage(wx.Panel):
         pattern.notes = [n for n in pattern.notes if n.step < pattern.steps()]   # noty za koncem pryč
         self.pattern_view.Refresh()
 
+    def _set_grid(self, index):
+        """Přepne mřížku patternu (16 / 48 kroků na takt) a přepočítá noty, ať zněj pořád stejně.
+
+        16 -> 48: všechno krát 3 (přesně). 48 -> 16: děleno 3 a zaokrouhlený,
+        noty mezi šestnáctinama se posunou na nejbližší. Když pak dvě skončí na stejným
+        místě a stejný výšce, nechám jen tu první (jinak by zněla dvakrát nahlas).
+        """
+        pattern = self.track.patterns[self.track.current]
+        new_grid = GRIDS[index]
+        scale = new_grid / pattern.grid
+        notes = {}      # klíč (krok, výška) -> nota; setdefault přidá, jen když tam ještě nic není
+        for n in pattern.notes:
+            step = round(n.step * scale)
+            notes.setdefault((step, n.pitch), Note(step, n.pitch, max(1, round(n.length * scale)), n.velocity))
+        pattern.grid = new_grid
+        pattern.notes = list(notes.values())
+        self.pattern_view.Refresh()
+
     def _clear_pattern(self):
-        # novej prázdnej pattern se stejnou délkou místo starýho
+        # novej prázdnej pattern se stejnou délkou i mřížkou místo starýho
         old = self.track.patterns[self.track.current]
-        self.track.patterns[self.track.current] = Pattern(old.bars)
+        self.track.patterns[self.track.current] = Pattern(old.bars, old.grid)
         self.pattern_view.Refresh()
 
     def _toggle_mute(self):

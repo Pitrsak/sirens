@@ -179,10 +179,13 @@ class PatternView(wx.Control):
                 gc.StrokeLine(LABEL_W, y + cell_h, w, y + cell_h)
 
         # sloupce: slabě každej krok, víc každá doba, nejvíc každej takt (v mřížce i v pruhu Vel)
-        per_beat = STEPS_PER_BAR // BEATS_PER_BAR      # kroků na dobu: 16 / 4 = 4
+        per_beat = pattern.grid // BEATS_PER_BAR       # kroků na dobu: 16 / 4 = 4 (jemná mřížka 48 / 4 = 12)
+        per_16th = pattern.grid // STEPS_PER_BAR       # kroků na šestnáctinu: 1 (jemná mřížka 3)
         for step in range(pattern.steps() + 1):          # +1, ať je i čára na pravým konci
+            if step % per_16th:
+                continue        # u jemný mřížky čáry jen po šestnáctinách, jinak by to byla šedá kaše
             x = LABEL_W + step * cell_w
-            strong = step % STEPS_PER_BAR == 0           # začátek taktu
+            strong = step % pattern.grid == 0            # začátek taktu
             gc.SetPen(wx.Pen(theme.TEXT_DIM if strong else theme.BORDER if step % per_beat == 0 else theme.GRID, 1))
             gc.StrokeLine(x, HEADER_H, x, grid_bottom)
             gc.StrokeLine(x, vel_top, x, h)

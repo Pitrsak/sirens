@@ -10,7 +10,7 @@ a obraz, který na hudbu reaguje.
 - **Visual:** obraz složený z vrstev (tvary a efekty), které reagují na zvuk. Lze i přes celou obrazovku.
 
 Zvuk stopy jde uložit jako preset (**Preset: Save / Load** na záložce Sound), presety jsou
-v `assets/presets/` po složkách (drums, bass). Hotové písně jsou v `assets/songs/`.
+v `assets/presets/` po složkách (drums, bass, synth). Hotové písně jsou v `assets/songs/`.
 
 Práce se ukládá sama (autosave) a otevře se při dalším spuštění; **Save / Open** ukládá do souboru.
 
@@ -42,8 +42,8 @@ Příště už stačí jen poslední řádek.
 - **Duplicate** (Song) zkopíruje stopu i se zvukem a patterny; **Copy sound / Paste sound** (Sound) přenese jen zvuk na jinou stopu.
 - Pattern: klik do mřížky přidá notu, tažením se prodlouží, klik na notu ji smaže, kolečko posouvá výšky.
   Pruh **Vel** pod mřížkou nastaví sílu (hlasitost) not.
-- Časová osa: klik / tažení v řádku stopy vloží její pattern, klik na **M** stopu ztlumí,
-  spodní řádek kreslí automatizace vybraného slideru (pravé tlačítko bod smaže).
+  **Grid** přepne mřížku patternu: šestnáctiny (16 kroků na takt) nebo **Fine** (48 kroků na takt).
+- Časová osa: klik / tažení v řádku stopy vloží její pattern, klik na **M** stopu ztlumí.
 - **Song length** nastaví délku písně v taktech (ukáže i délku v minutách); kolečko myši nad časovou osou posouvá v čase.
 - Slidery: táhnout myší, kolečko = jemný posun, dvojklik = výchozí hodnota,
   kliknutí na číslo = zapsat přesnou hodnotu.

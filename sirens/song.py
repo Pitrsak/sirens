@@ -12,11 +12,12 @@
 takt = prostě kus času, 4 doby (doba = jedno "ťuk" při počítání do rytmu),
 tempo v BPM říká, kolik dob je za minutu, takže doba trvá 60 / tempo sekund.
 
-Čas v patternu se počítá v krocích: 16 kroků na takt, takže jeden krok je
+Čas v patternu se počítá v krocích. Normálně 16 kroků na takt, takže jeden krok je
 šestnáctinová nota (4 kroky na dobu). Takt má vždycky 4 doby.
 Přehrávač ale tiká jemnějc: TICKS_PER_BAR = 48 tiků na takt, takže jeden krok
-mřížky jsou 3 tiky. (Dřív tu byly i trioly s jiným počtem kroků na takt,
-ty jsme zahodili, ať je to jednodušší.)
+mřížky jsou 3 tiky. Pattern si ale může přepnout jemnou mřížku (Fine, 48 kroků
+na takt), to je pak krok = 1 tik. Hodí se na linky hraný "od ruky", který
+do šestnáctin nesednou (synth ze Sunspots).
 """
 
 from dataclasses import dataclass
@@ -26,7 +27,7 @@ from sirens.audio.instrument import Instrument
 BEATS_PER_BAR = 4
 STEPS_PER_BAR = 16                          # kroků na takt: šestnáctiny, 4 na dobu
 TICKS_PER_BAR = 48                          # tiky přehrávače na takt (48 / 16 = 3 tiky na krok)
-TICKS_PER_STEP = TICKS_PER_BAR // STEPS_PER_BAR
+GRIDS = (STEPS_PER_BAR, TICKS_PER_BAR)      # mřížky patternu: 16 kroků na takt, nebo jemná 48 (krok = tik)
 PATTERN_NAMES = "ABCDEFGH"
 MAX_TRACKS = 8
 MIN_BARS, MAX_BARS = 4, 512                 # rozsah délky písně v taktech
@@ -41,16 +42,17 @@ class Note:
 
 
 class Pattern:
-    def __init__(self, bars: int = 1):
+    def __init__(self, bars: int = 1, grid: int = STEPS_PER_BAR):
         self.bars = bars
+        self.grid = grid               # kroků na takt: 16 (šestnáctiny) nebo 48 (jemná mřížka)
         self.notes: list[Note] = []
 
     def steps(self) -> int:
-        return self.bars * STEPS_PER_BAR   # kolik kroků má celej pattern
+        return self.bars * self.grid   # kolik kroků má celej pattern
 
     def ticks_per_step(self) -> int:
-        """Kolik tiků přehrávače trvá jeden krok (pořád 3)."""
-        return TICKS_PER_STEP
+        """Kolik tiků přehrávače trvá jeden krok: 48 / 16 = 3, u jemný mřížky 48 / 48 = 1."""
+        return TICKS_PER_BAR // self.grid
 
     def note_at(self, step: int, pitch: int):
         """Nota, která na daným kroku a výšce zní (nebo None)."""

@@ -22,20 +22,6 @@
    "enabled": true
   },
   {
-   "block": "Oscillator",
-   "values": {
-    "Wave": 0,
-    "Octave": 0,
-    "Detune": 4.854368932038838,
-    "Pitch drop": 0,
-    "Drop time": 0.02734596186875598,
-    "Brightness": 0.10679611650485436,
-    "Level": 0.5
-   },
-   "extra": {},
-   "enabled": false
-  },
-  {
    "block": "Distortion",
    "values": {
     "Drive": 19.34633234235647,
