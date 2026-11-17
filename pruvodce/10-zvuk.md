@@ -88,10 +88,10 @@ Tři věci, které si z obrázku odnes:
 ### `sirens/audio/engine.py` — AudioEngine
 
 Účel: nastartovat pyo, mít jeden pevný výstupní řetězec do reproduktorů a nabídnout pár
-metod zbytku programu (`play`, `send_note`, `set_volume`, nahrávání, `close`).
+metod zbytku programu (`play`, `send_note`, `set_volume`, `close`).
 Vytváří se jednou v `sirens/__main__.py`, ještě před oknem.
 
-#### Server (`engine.py:22-31`)
+#### Server (`engine.py:26-30`)
 
 ```python
 self.server = Server(sr=sample_rate, nchnls=2, buffersize=buffer_size, duplex=int(microphone))
@@ -112,7 +112,7 @@ self.server.start()
 - `duplex=0`: jen výstup, mikrofon se neotevírá (s `microphone=True` by to bylo 1).
 - `setMidiInputDevice(99)`: 99 v pyo znamená „poslouchej všechna MIDI zařízení“.
 
-#### Výstupní řetězec (`engine.py:33-46`)
+#### Výstupní řetězec (`engine.py:33-45`)
 
 ```python
 self.silence = Sig(0)
@@ -147,11 +147,11 @@ self.analyzer = Analyzer(self.source, sample_rate)
 - `Pan(..., outs=2, pan=0.5)`: nástroje jsou mono (jeden kanál), `Pan` ho rozdělí do dvou
   kanálů, `pan=0.5` = přesně doprostřed. `.out()` znamená „tohle pošli do zvukové karty“.
   Je to jediný `.out()` v celé aplikaci.
-- `Analyzer(self.source, ...)`: analýza (osciloskop, spektrum, data pro obraz a světlo) dostává
+- `Analyzer(self.source, ...)`: analýza (osciloskop, spektrum, data pro obraz) dostává
   signál **před** hlasitostí, takže obraz reaguje stejně, i když máš Master skoro dole.
   Analyzer je popsaný v kapitole 30.
 
-#### `play(signal)` (`engine.py:48-57`)
+#### `play(signal)` (`engine.py:47-56`)
 
 ```python
 self.retired = (self.retired + [self.current])[-4:]
@@ -169,7 +169,7 @@ všech nástrojů).
 - `self.retired`: seznam posledních čtyř starých součtů. `[-4:]` je **slice**: vezmi poslední
   čtyři prvky seznamu. Proč je držet, je vysvětlené u nástroje (stejný trik).
 
-#### `send_note(channel, note, velocity)` (`engine.py:59-68`)
+#### `send_note(channel, note, velocity)` (`engine.py:58-67`)
 
 ```python
 status = (0x90 if velocity > 0 else 0x80) + channel - 1
@@ -290,7 +290,7 @@ elif label in ("Attack", "Decay", "Sustain", "Release"):
     setattr(self.envelope, label.lower(), value)
 ```
 
-Volá ho slider (UI zavolá `owner.set(popisek, hodnota)`) a automatizace v písni.
+Volá ho slider (UI zavolá `owner.set(popisek, hodnota)`).
 `super().set` uloží hodnotu do `settings` (kvůli ukládání). Pak se změna pošle do pyo objektu.
 `setattr(objekt, "attack", value)` je totéž jako `self.envelope.attack = value`, jen jméno
 atributu je v proměnné. `"Attack".lower()` = `"attack"`. Ušetří to čtyři skoro stejné `if`.
@@ -403,7 +403,7 @@ Adjustable (param.py)
          └─ ReverbBlock
 ```
 
-#### Začátek souboru: tabulky a `keep()` (`blocks.py:35-58`)
+#### Začátek souboru: tabulky a `keep()` (`blocks.py:37-59`)
 
 > **Pojem: tabulka (`DataTable`, `NewTable`, `SndTable`).** Kus paměti s řadou čísel,
 > ze kterého pyo objekty čtou. Může v ní být křivka (pokles výšky, křivka zkreslení) nebo
@@ -428,7 +428,7 @@ a program by spadl. Tabulek je pár, takže to paměť nezatíží.
 `load_sound(path)`: načte soubor jen jednou, podruhé ho vezme ze slovníku `SOUNDS`
 (cesta -> tabulka). `chnl=0` = jen první kanál, nástroje jsou mono.
 
-#### `Block` (`blocks.py:62-105`)
+#### `Block` (`blocks.py:62-104`)
 
 ```python
 class Block(Adjustable):
@@ -440,7 +440,6 @@ class Block(Adjustable):
         self.instrument = instrument
         self.values = {p.label: SigTo(p.default, time=SMOOTH_TIME, init=p.default)
                        for p in self.PARAMS}
-        self.automation = {}
         self.output = None
 ```
 
@@ -460,15 +459,15 @@ a díky `SigTo` se mění plynule (30 ms), takže pohyb sliderem necvaká.
 - `connect(flow)` je v `Block` jen `raise NotImplementedError`: „tohle musí potomek napsat sám“.
 - `note()`, `extra()`, `load_extra()` dělají něco jen u Sampleru (jméno souboru, ukládání cesty).
 
-#### Zdroje: `SourceBlock` (`blocks.py:135-208`)
+#### Zdroje: `SourceBlock` (`blocks.py:134-201`)
 
-Společné slidery na výšku (`PITCH_PARAMS`, `blocks.py:111`) mají všechny zdroje kromě
+Společné slidery na výšku (`PITCH_PARAMS`, `blocks.py:110`) mají všechny zdroje kromě
 Noise a Sampleru: **Octave**, **Detune**, **Pitch drop**, **Drop time**. Plus **Level** (hlasitost).
 
 > **Pojem: `*seznam` uvnitř seznamu.** `PARAMS = [Choice(...), *PITCH_PARAMS, LEVEL]`
 > „vysype“ prvky `PITCH_PARAMS` na to místo. Výsledkem je jeden plochý seznam sliderů.
 
-**Výška zdroje: `_ratio()`** (`blocks.py:160`)
+**Výška zdroje: `_ratio()`** (`blocks.py:159`)
 
 ```python
 return 2 ** (round(self.get("Octave")) + self.get("Detune") / 1200)
@@ -479,7 +478,7 @@ takže oktáva = 1200 centů. Octave +1 a Detune 0 dá `2 ** 1 = 2` (dvakrát vy
 Octave -1 dá `0.5`, Detune +100 dá `2 ** (1/12)` ≈ 1,059 (o půltón výš).
 `self.ratio` je `SigTo` s touhle hodnotou. Když hneš Octave nebo Detune, přepočítá se v `set`.
 
-**Frekvence a hlasitost pro každý hlas: `freq()` a `amp()`** (`blocks.py:178-190`)
+**Frekvence a hlasitost pro každý hlas: `freq()` a `amp()`** (`blocks.py:177-189`)
 
 ```python
 shifted = Sig(self.instrument.pitch, mul=self.ratio)        # výška noty * ratio
@@ -494,7 +493,7 @@ return Sig(self.instrument.envelope, mul=self.values["Level"])   # obálka * Lev
 
 `amp()` je důvod, proč zdroje mlčí, když nehraješ: obálka je 0, krát cokoli je 0.
 
-**Pitch drop** (`blocks.py:142-149`, `drop_curve` na `blocks.py:124`)
+**Pitch drop** (`blocks.py:141-148`, `drop_curve` na `blocks.py:123`)
 
 Pitch drop dělá, že nota začne výš a rychle spadne na svou výšku. Z obyčejného sinusu
 tak vznikne kopák (bicí), z vyšších tónů laserové „píu“.
@@ -519,7 +518,7 @@ self.bend = Sig(self.drop, mul=self.amount, add=1)
 > **Pojem: `TrigEnv`.** Pyo objekt, který při každém impulsu (trigger) přehraje tabulku
 > jednou od začátku do konce za `dur` sekund. Normálně se tak hrají obálky.
 
-**Napojení zdroje: `connect(flow)`** (`blocks.py:192-202`)
+**Napojení zdroje: `connect(flow)`** (`blocks.py:191-201`)
 
 ```python
 if flow is None:
@@ -535,7 +534,7 @@ zvlášť (každou s vlastní obálkou).
 
 #### Jednotlivé zdroje
 
-**OscillatorBlock** (`blocks.py:209`): základní oscilátor. Používá pyo `LFO`, který umí
+**OscillatorBlock** (`blocks.py:208`): základní oscilátor. Používá pyo `LFO`, který umí
 víc tvarů vlny a je **pásmově omezený** (nevyrábí frekvence nad hranicí, kterou zvuková
 karta umí přehrát; jinak by se odrážely zpátky jako nepříjemné pískání, tzv. aliasing).
 Tvar vlny = barva tónu: sinus čistý a měkký, pila (saw) ostrá a bzučivá, obdélník (square)
@@ -543,11 +542,11 @@ dutý, trojúhelník mezi nimi. `LFO_TYPES = (7, 0, 2, 3)` jsou čísla těch tv
 `Brightness` je parametr `sharp` (jak ostrá je vlna). Tvar se nedá zadat signálem, jen číslem,
 proto se v `set` přepíná přímo `self.osc.type`.
 
-**NoiseBlock** (`blocks.py:239`): bílý šum, náhodná čísla. Šum není tón: nemá výšku, obsahuje
+**NoiseBlock** (`blocks.py:238`): bílý šum, náhodná čísla. Šum není tón: nemá výšku, obsahuje
 všechny frekvence naráz a zní jako „šššš“. Výška noty ho nezajímá, používá jen obálku
 (kdy a jak hlasitě). S filtrem dělá vítr, hi-hat, šumění.
 
-**SamplerBlock** (`blocks.py:256`): přehraje zvukový soubor při každé notě.
+**SamplerBlock** (`blocks.py:255`): přehraje zvukový soubor při každé notě.
 
 ```python
 speed = Max(self.instrument.pitch, 1) / ROOT_HZ * self.shift
@@ -566,13 +565,13 @@ přehrávání se řídí délkou `dur`:
 - Sampler používá jen `Level`, ne obálku nástroje. Soubor hraje celý, puštění klávesy ho
   neutne (dobré pro bicí).
 
-`load(path)` (`blocks.py:293`): načte nový soubor, postaví **nový** přehrávač a nechá rack
+`load(path)` (`blocks.py:292`): načte nový soubor, postaví **nový** přehrávač a nechá rack
 znovu propojit. Nepoužívá se výměna tabulky ve starém přehrávači (`setTable`), protože ta by
 mohla smazat starý zvuk, zatímco ho zvukové vlákno čte. Prázdný Sampler má 0,1 s ticha
 (`NewTable(0.1)`). Volá ho tlačítko **Load** a při otevření projektu `load_extra`
 (jen když soubor pořád existuje: `Path(...).exists()`).
 
-#### Efekty: `EffectBlock` (`blocks.py:318-335`)
+#### Efekty: `EffectBlock` (`blocks.py:317-329`)
 
 ```python
 def connect(self, flow):
@@ -590,7 +589,7 @@ Efekt zpracuje, co přitéká. Když nic nepřitéká, nic nevydá. Konkrétní 
   Důvod: ozvěna nebo dozvuk má být jeden pro všechny noty (jinak 8x víc počítání),
   a u ozvěny noty stejně doznívají přes sebe.
 
-#### FilterBlock (`blocks.py:336-385`)
+#### FilterBlock (`blocks.py:335-382`)
 
 Filtr nechá projít jen část frekvencí: **Low-pass** propustí hloubky (zvuk ztmavne),
 **High-pass** výšky (zvuk zeslábne, zprůhlední), **Band-pass** jen pásmo kolem Cutoff.
@@ -625,7 +624,7 @@ return SVF(flow, freq=self.cutoff, q=self.q, type=self.mode)
    hranice se s Resonance pod 1 rozkmitá až do nekonečna (zkoušel jsem šum přes High-pass 6 kHz
    s q 0,5 a vyšlo inf). Proto slider Resonance začíná na 1 a Clip hlídá i starý uložený soubory.
 
-#### ShaperBlock: vlastní křivka (`blocks.py:386-423`)
+#### ShaperBlock: vlastní křivka (`blocks.py:385-420`)
 
 Tohle je **naše vlastní zpracování signálu** (waveshaping). Každý vzorek x (číslo -1..1)
 projde funkcí y = curve(x), kterou si počítáme sami.
@@ -652,7 +651,7 @@ def process(self, flow):
 - Když se pohne sliderem, který mění tvar (`SHAPE`), tabulka se přepočítá (`set`).
 - `curve` je v ShaperBlock jen `raise NotImplementedError`, konkrétní křivku dodají potomci.
 
-**DistortionBlock** (`blocks.py:424`):
+**DistortionBlock** (`blocks.py:423`):
 
 ```python
 return math.tanh(drive * x) / math.tanh(drive)
@@ -665,7 +664,7 @@ zajistí, že x = 1 dá zase přesně 1 (maximální hlasitost se nezmění).
 Příklad pro Drive 5: x = 0,2 dá tanh(1)/tanh(5) ≈ 0,76. Tichá místa vlny se hodně zesílí,
 hlasitá narazí na strop.
 
-**BitcrushBlock** (`blocks.py:441`):
+**BitcrushBlock** (`blocks.py:440`):
 
 ```python
 levels = 2 ** round(bits) / 2
@@ -676,7 +675,7 @@ Snížení bitové hloubky: vlna smí mít jen pár povolených úrovní, každ�
 na nejbližší. Z hladké vlny jsou schody, zní to rozbitě a digitálně. Bits 4: `levels` = 8 úrovní
 na každou stranu od nuly, takže povolené hodnoty jsou -1, -7/8, ..., 0, ..., 7/8, 1.
 
-#### Delay a Reverb (`blocks.py:457-493`)
+#### Delay a Reverb (`blocks.py:456-489`)
 
 Oba nejdřív sečtou hlasy (`Mix(flow, voices=1)`) a pak použijí hotový pyo efekt:
 
@@ -687,11 +686,21 @@ Oba nejdřív sečtou hlasy (`Mix(flow, voices=1)`) a pak použijí hotový pyo 
 - **Reverb** (`Freeverb`): dozvuk místnosti, hustá síť odrazů, které doznívají. `Size` = velikost
   místnosti (délka dozvuku), `Damping` = jak rychle v dozvuku mizí výšky.
 
-#### `CATALOG` (`blocks.py:494`)
+#### `CATALOG` (`blocks.py:493`)
 
 Seznam tříd bloků v pořadí, v jakém jsou v menu **Add block**. UI mezi poslední zdroj a první
 efekt vloží čáru (podle `IS_SOURCE`). Ukládání (`session.py`) z něj dělá slovník
 „jméno -> třída“, aby při otevření projektu našlo třídu podle uloženého jména.
+
+#### Jak se zvuk stopy ukládá a kopíruje: presety
+
+Zvuk jedné stopy (obálka + bloky se slidery) vyrobí `session.sound_of(track)` jako slovník
+a `session.apply_sound(track, data)` ho zase nastaví jiné stopě (smaže její bloky a postaví
+nové podle jmen z `CATALOG`). Na tom stojí tlačítka **Copy sound / Paste sound** a skupina
+**Preset** v záložce Sound (`sound_page.py`). **Save** zapíše `sound_of` do souboru
+(`session.write`), **Load** ho přečte a použije `apply_sound`. Soubor bez klíče `"blocks"`
+(třeba celá uložená píseň) se odmítne. Noty a časová osa stopy zůstanou, mění se jen zvuk.
+Hotové presety jsou ve složce `assets/presets/` (drums, bass, synth).
 
 ---
 
@@ -726,10 +735,10 @@ Tady kód zvuk opravdu počítá sám, nejen skládá hotové efekty knihovny:
 
 | Kde | Co počítáme sami |
 |---|---|
-| `ShaperBlock._draw_curve`, `blocks.py:409` | přenosová křivka y = f(x) pro každý vzorek, počítaná v Pythonu do tabulky 4096 bodů |
-| `DistortionBlock.curve`, `blocks.py:435` | zkreslení funkcí tanh s normalizací, aby se nezměnila maximální hlasitost |
-| `BitcrushBlock.curve`, `blocks.py:452` | kvantování (zaokrouhlení) vzorku na 2^bits úrovní |
-| `drop_curve`, `blocks.py:124` | exponenciální křivka poklesu výšky, upravená, aby končila přesně v 0 |
+| `ShaperBlock._draw_curve`, `blocks.py:408` | přenosová křivka y = f(x) pro každý vzorek, počítaná v Pythonu do tabulky 4096 bodů |
+| `DistortionBlock.curve`, `blocks.py:434` | zkreslení funkcí tanh s normalizací, aby se nezměnila maximální hlasitost |
+| `BitcrushBlock.curve`, `blocks.py:451` | kvantování (zaokrouhlení) vzorku na 2^bits úrovní |
+| `drop_curve`, `blocks.py:123` | exponenciální křivka poklesu výšky, upravená, aby končila přesně v 0 |
 | `SourceBlock.freq`, `_ratio`, `_amount` | výpočet frekvence každého hlasu: nota * 2^(oktáva + centy/1200) * (1 + amount * křivka) |
 | `SamplerBlock._build` | změna výšky vzorku přes rychlost přehrávání: dur = délka / (f / f_C4 * 2^(posun/12)) |
 | `FilterBlock.process` | vlastní modulace hraniční frekvence: Cutoff * (1 + Wobble * sin) * (1 + 8 * Envelope * obálka), zvlášť pro každou notu |
@@ -810,15 +819,14 @@ se můžou posunout):
 | Kde | Co volá |
 |---|---|
 | `sirens/__main__.py`, `main()` | `AudioEngine()`: vznikne jednou, před oknem |
-| `sirens/ui/main_frame.py` | `engine.play(self.song.outputs())` po startu, po přidání/smazání stopy a po otevření projektu; `engine.analyzer` pro obraz a světlo; `engine.close()` při zavření okna |
+| `sirens/ui/main_frame.py` | `engine.play(self.song.outputs())` po startu, po přidání/smazání stopy a po otevření projektu; `engine.analyzer` pro obraz; `engine.close()` při zavření okna |
 | `sirens/song.py`, `Track.__init__` | `Instrument(channel)`: každá stopa má svůj nástroj na volném kanálu 1–8 |
-| `sirens/song.py`, `Song.outputs`, `Song.remove_track`, `Track.automated_owners` | seznam `instrument.output` pro engine; `rack.clear()` při smazání stopy; nástroj + bloky jako vlastníci automatizace |
+| `sirens/song.py`, `Song.outputs`, `Song.remove_track` | seznam `instrument.output` pro engine; `rack.clear()` při smazání stopy |
 | `sirens/ui/sound_page.py` | `CATALOG` do menu Add block; slider Master -> `engine.set_volume`; slidery nástroje; `rack.describe()` do pruhu s cestou zvuku |
 | `sirens/ui/stack_editor.py` | tlačítka On/Off, Up, Down, Remove a menu Add block -> `Stack.toggle/move/remove/add` (a tím `Rack.changed`); tlačítko Load -> `SamplerBlock.load`; `block.note()` pod nadpisem |
 | `sirens/ui/sidebar.py`, `add_params` | pohyb slideru -> `owner.set(popisek, hodnota)` (nástroj i blok) |
 | `sirens/ui/keys.py`, `note_on` / `note_off` | `engine.send_note` z klávesnice počítače |
 | `sirens/ui/song_page.py` | `engine.send_note` při kliknutí do piano rollu (krátká ukázka noty) |
-| `sirens/audio/player.py` | `engine.send_note` při přehrávání písně; `owner.set` pro automatizaci sliderů |
-| `sirens/session.py` | ukládání: `block.get`, `block.extra()`, `block.enabled`; načítání: `rack.add`, `block.set`, `block.load_extra`, nakonec `rack.changed()` |
+| `sirens/audio/player.py` | `engine.send_note` při přehrávání písně |
+| `sirens/session.py` | ukládání: `sound_of` (`block.get`, `block.extra()`, `block.enabled`); načítání: `apply_sound` (`rack.add`, `block.set`, `block.load_extra`, nakonec `rack.changed()`) |
 | `sirens/audio/analyzer.py` | dostává `engine.source` (součet stop před Master) |
-| `sirens/ui/timeline_view.py` | zapisuje do `block.automation` / `instrument.automation` |

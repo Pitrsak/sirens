@@ -1,11 +1,8 @@
-# 30 — Obraz a světlo: od zvuku k obrázku a k lampě
+# 30 — Obraz: od zvuku k obrázku
 
 ## Úvod
 
-Tahle kapitola vysvětluje tu část Sirens, která se *dívá* na zvuk a podle něj kreslí obraz a řídí světlo. Sama nic nehraje. Bere zvuk, který právě vychází z aplikace, zjistí o něm pár čísel (jak je hlasitý, kolik je v něm basů, jestli právě udeřil buben) a podle těch čísel:
-
-- **kreslí obraz** v záložce **Visual** a v okně **Fullscreen** (tlačítko v záložce Visual otevře stejný obraz přes celou obrazovku, třeba na projektor),
-- **svítí světlem** v záložce **Light**: náhled je barevný kruh, a když zmáčkneš *Start sending*, hodnoty letí po síti do skutečného světla (nebo do programu jako QLC+).
+Tahle kapitola vysvětluje tu část Sirens, která se *dívá* na zvuk a podle něj kreslí obraz. Sama nic nehraje. Bere zvuk, který právě vychází z aplikace, zjistí o něm pár čísel (jak je hlasitý, kolik je v něm basů, jestli právě udeřil buben) a podle těch čísel **kreslí obraz** v záložce **Visual** a v okně **Fullscreen** (tlačítko v záložce Visual otevře stejný obraz přes celou obrazovku, třeba na projektor).
 
 Hodnoty z analýzy používá i záložka Sound: osciloskop a spektrum, které tam vidíš, kreslí `sirens/ui/sound_page.py`, ale čísla k tomu počítá stejný analyzátor, o kterém je tahle kapitola.
 
@@ -17,8 +14,6 @@ Soubory, o kterých to tu je:
 | `sirens/visual/features.py` | z analyzátoru vybere, co potřebuje obraz, převede to na čísla 0..1 a detekuje údery (beat) |
 | `sirens/visual/layers.py` | jednotlivé vrstvy obrazu: tvary (Ring, Particles) a efekty (Feedback, Mirror, Glow, Warp) |
 | `sirens/visual/painter.py` | každý snímek projde vrstvy a složí z nich výsledný obrázek |
-| `sirens/light/rig.py` | z basů, středů a výšek udělá barvu světla a hodnoty DMX kanálů |
-| `sirens/light/artnet.py` | zabalí DMX hodnoty do síťového paketu Art-Net a pošle je přes UDP |
 
 ## Jak to spolu souvisí
 
@@ -31,22 +26,20 @@ Soubory, o kterých to tu je:
   - spočítá spektrum (vlastní DFT)
   - scope(), peak_level_db(), bands()
         |
-        +-------------------------------+
-        |                               |
-        v                               v
-  Features  (features.py)         LightRig  (rig.py)
-  level, bass, mid, high,         barva R,G,B = basy, středy, výšky
-  beat, wave, spectrum, time      (vyhlazená) -> 512 DMX kanálů
-        |                               |
-        v                               v
-  Painter  (painter.py)           ArtNetSender  (artnet.py)
-  projde vrstvy shora dolů        hlavička Art-Net + 512 bajtů
-  (layers.py: Ring, Particles,                 |
-   Feedback, Mirror, Glow, Warp)              v
-        |                         UDP paket na port 6454
-        v                                   |
-  pole 360 x 640 x 3 (0..255)               v
-        |                         světlo / QLC+ / konzole
+        v
+  Features  (features.py)
+  level, bass, mid, high,
+  beat, wave, spectrum, time
+        |
+        v
+  Painter  (painter.py)
+  projde vrstvy shora dolů
+  (layers.py: Ring, Particles,
+   Feedback, Mirror, Glow, Warp)
+        |
+        v
+  pole 360 x 640 x 3 (0..255)
+        |
         v
   záložka Visual + Fullscreen
 ```
@@ -54,8 +47,7 @@ Soubory, o kterých to tu je:
 Celé to pohání časovač v hlavním okně (`sirens/ui/main_frame.py`, metoda `_on_tick`). Tikne 30x za sekundu (`FPS = 30`) a pokaždé:
 
 1. zavolá `analyzer.update()`, které se podívá, jestli je nahraný nový kousek zvuku,
-2. když je vidět záložka Visual nebo je otevřený Fullscreen, zavolá `visual_page.tick(analyzer, dt)` a ta zavolá `painter.render(...)`,
-3. vždycky (i když koukáš jinam) zavolá `light_page.tick(analyzer)`, aby světlo svítilo s hudbou pořád.
+2. když je vidět záložka Visual nebo je otevřený Fullscreen, zavolá `visual_page.tick(analyzer, dt)` a ta zavolá `painter.render(...)`.
 
 Jednomu průchodu tímhle kolečkem se říká **snímek** (frame). `dt` je čas od minulého snímku v sekundách, zhruba 0,033 s.
 
@@ -100,7 +92,7 @@ def update(self) -> bool:                                  # analyzer.py:63
 
 ### Spektrum: vlastní DFT (`_compute_spectrum`)
 
-**Co je spektrum, intuitivně.** Každý zvuk jde rozložit na součet sinusovek (čistých tónů) s různou frekvencí a silou. Spektrum je tabulka „frekvence -> jak silně tam je“. Klavírní A4 má silnou čáru na 440 Hz a slabší na 880, 1320, ... Basový buben má sílu dole. Spektrum je to, co v záložce Sound vidíš jako křivku, a z něj se počítají basy, středy a výšky pro obraz a světlo.
+**Co je spektrum, intuitivně.** Každý zvuk jde rozložit na součet sinusovek (čistých tónů) s různou frekvencí a silou. Spektrum je tabulka „frekvence -> jak silně tam je“. Klavírní A4 má silnou čáru na 440 Hz a slabší na 880, 1320, ... Basový buben má sílu dole. Spektrum je to, co v záložce Sound vidíš jako křivku, a z něj se počítají basy, středy a výšky pro obraz.
 
 **DFT (diskrétní Fourierova transformace)** je výpočet, který spektrum z úseku vzorků udělá. Vzorec z přednášky:
 
@@ -198,7 +190,7 @@ Vlna tak začíná pořád ve stejné fázi a stojí na místě, stejně jako na
   ```
 
   **Maska** je pole `True/False` stejně dlouhé jako spektrum. `self.spectrum[inside]` vybere jen ty prvky, kde je `True`. Převod `(db + 60) / 60` je přímka: -60 dB dá 0, -30 dB dá 0,5, 0 dB dá 1. `min`/`max` výsledek ořízne do 0..1.
-- `bands()`: tři pásma najednou, `BASS = 20–250 Hz`, `MID = 250–2000 Hz`, `HIGH = 2000–20000 Hz` (analyzer.py:25). Tohle je to hlavní číslo pro obraz i světlo.
+- `bands()`: tři pásma najednou, `BASS = 20–250 Hz`, `MID = 250–2000 Hz`, `HIGH = 2000–20000 Hz` (analyzer.py:25). Tohle je to hlavní číslo pro obraz.
 
 ---
 
@@ -300,7 +292,7 @@ Výběr (Choice) se ukládá jako pořadové číslo, takže `REACT[...]` z něj
 **Míchání vrstev, `blend()` (layers.py:45).**
 
 ```python
-canvas += layer8.astype(np.float32) * (1 / 255)      # layers.py:52
+canvas += layer8.astype(np.float32) * (1 / 255)      # layers.py:51
 ```
 
 Tvary se nekreslí přímo do obrazu, ale do prázdné černé 8bitové vrstvy (`np.zeros_like(canvas, dtype=np.uint8)` = pole nul stejného tvaru jako canvas). Důvod: OpenCV umí vyhlazené čáry (`cv2.LINE_AA`, anti-aliasing = měkké okraje bez schodů) jen v 8bitovém obrázku. Pak se vrstva převede na 0..1 (`/ 255`) a **přičte** k obrazu. Sčítání je jako když svítí dva projektory na jedno plátno: červená + zelená = žlutá, překryv je vždycky světlejší, nikdy tmavší, a černé místo (0) nic nezmění. `+=` mění `canvas` přímo na místě, nevytváří kopii.
@@ -323,7 +315,7 @@ Souřadnice musí být celá čísla, proto se body převádějí `.astype(np.in
 ```python
 levels = np.concatenate([f.spectrum, f.spectrum[::-1]])                    # 96 bodů + tytéž pozpátku = 192
 angles = np.linspace(0, 2 * np.pi, len(levels), endpoint=False) - np.pi / 2
-radius = HEIGHT * (s["Size"] * (1 + 0.5 * self.drive(f)) + 0.25 * s["Spectrum"] * levels)   # :111
+radius = HEIGHT * (s["Size"] * (1 + 0.5 * self.drive(f)) + 0.25 * s["Spectrum"] * levels)   # :110
 points = np.stack([WIDTH / 2 + radius * np.cos(angles),
                    HEIGHT / 2 + radius * np.sin(angles)], axis=1).astype(np.int32)
 ```
@@ -427,100 +419,6 @@ return (np.clip(shown, 0, 1) * 255).astype(np.uint8)                     # 5. 0.
 
 ---
 
-## 6. `sirens/light/rig.py`: barva světla
-
-### DMX od nuly
-
-**DMX** je standard, kterým se ovládají divadelní a klubová světla. Jedno vedení (jedno **universe**) přenáší **512 kanálů**, každý je číslo 0..255. Co kanál znamená, záleží na světle: u jednoduchého RGB LED reflektoru (LED par) je to typicky kanál pro červenou, zelenou a modrou za sebou. Světlu se nastaví **adresa** = číslo jeho prvního kanálu. Když má adresu 1, poslouchá na kanálech 1, 2, 3.
-
-### Třída `LightRig` (rig.py:12)
-
-Je to `Adjustable`, takže má slidery: `Brightness` (maximální jas), `Smoothing` (jak pomalu se mění), `Address` (kanál červené, 1..510, aby se G a B vešly do 512) a `Universe` (0..15).
-
-`self.rgb` je aktuální barva, tři čísla 0..1.
-
-**Vyhlazení, `update(bands)` (rig.py:25):**
-
-```python
-keep = self.settings["Smoothing"]
-self.rgb = [keep * old + (1 - keep) * new for old, new in zip(self.rgb, bands)]    # rig.py:34
-```
-
-`bands` jsou (basy, středy, výšky) z analyzátoru. `zip` je spáruje s (R, G, B): basy -> červená, středy -> zelená, výšky -> modrá. Nová barva = `keep` díl staré + `(1 - keep)` díl cílové. Při Smoothing 0,6 a skoku cíle z 0 na 1 jde barva 0 -> 0,4 -> 0,64 -> 0,78 -> ... tedy plynule. Je to stejný typ filtru jako klouzavý průměr basů u detekce úderu. Smoothing 0 = světlo skáče okamžitě (ostré záblesky), 0,95 = velmi pomalé přechody. Volá se každý snímek z `LightPage.tick`.
-
-**`values()` (rig.py:36)**: `round(c * brightness * 255)` udělá z 0..1 celé číslo 0..255.
-
-**`channels()` (rig.py:48)**: celé universe jako seznam 512 čísel.
-
-```python
-frame = [0] * DMX_CHANNELS                # 512 nul
-start = self.address() - 1                # DMX čísluje od 1, Python od 0
-frame[start:start + 3] = self.values()    # na místo světla zapíše R, G, B
-```
-
-`[0] * 512` je seznam 512 nul. Přiřazení do výřezu `frame[a:a+3] = [r, g, b]` přepíše tři prvky za sebou.
-
----
-
-## 7. `sirens/light/artnet.py`: posílání po síti
-
-### Síť od nuly
-
-- **IP adresa** (např. `127.0.0.1`, `2.0.0.10`) určuje počítač nebo zařízení v síti. `127.0.0.1` je vždycky „tenhle počítač“, takže se dá testovat proti programu (QLC+, Capture) na stejném počítači.
-- **Port** (číslo 0..65535) určuje, kterému programu na tom počítači zpráva patří. Art-Net má pevně port **6454**.
-- **UDP** je způsob posílání: zabalíš data do **paketu** (datagramu) a pošleš. Nečeká se na potvrzení a nenavazuje se spojení (na rozdíl od TCP). Když se paket ztratí, nevadí, za 33 ms letí další s aktuálními hodnotami. Pro světla v reálném čase je to ideální.
-- **Socket** je v programu „zásuvka do sítě“: objekt, přes který se posílá a přijímá. `socket.socket(socket.AF_INET, socket.SOCK_DGRAM)` = socket pro IPv4 adresy (`AF_INET`) a UDP (`SOCK_DGRAM`).
-- **Broadcast**: `setsockopt(SOL_SOCKET, SO_BROADCAST, 1)` povolí posílat i na adresu, která znamená „všem v síti“ (třeba `2.255.255.255`). Bez toho by systém takové odeslání odmítl.
-- **Bajt** = 8 bitů = číslo 0..255. Síťový paket je jen řada bajtů. Python typ `bytes` je přesně taková řada. `bytes([1, 2, 255])` udělá 3 bajty. Proto musí DMX hodnoty být 0..255: jinak `bytes()` vyhodí chybu.
-
-### Paket ArtDmx
-
-**Art-Net** je protokol, který přenáší DMX po běžné síti (Ethernet/Wi-Fi). Paket s hodnotami kanálů se jmenuje ArtDmx a skládá se z 18bajtové hlavičky a dat:
-
-| Pole | Bajtů | Hodnota u nás | Pozn. |
-|---|---|---|---|
-| ID | 8 | `"Art-Net\0"` | text + nulový bajt, podle toho příjemce pozná Art-Net |
-| OpCode | 2 | `0x5000` | „tohle je ArtDmx“; little-endian |
-| ProtVer | 2 | 14 | verze protokolu; big-endian |
-| Sequence | 1 | 1..255 | pořadí paketu; 0 by znamenalo „nesleduj pořadí“ |
-| Physical | 1 | 0 | číslo fyzického portu, nepoužíváme |
-| SubUni | 1 | spodních 8 bitů universa | |
-| Net | 1 | dalších 7 bitů universa | |
-| Length | 2 | 512 | počet kanálů; big-endian |
-| Data | 512 | hodnoty kanálů | |
-
-**Endianita (endian)**: číslo větší než 255 se nevejde do jednoho bajtu, takže zabere dva. Otázka je, který bajt jde první. **Big-endian** = vyšší bajt první, **little-endian** = nižší bajt první. 512 je šestnáctkově `0x0200`: big-endian `02 00`, little-endian `00 02`. Art-Net to má schválně napůl: OpCode little-endian, verze a délka big-endian. (Šestnáctková soustava, hex: `0x` na začátku, číslice 0–9 a a–f; `0xFF` = 255, jeden bajt jsou přesně dvě hex číslice.)
-
-### `send()` (artnet.py:35)
-
-```python
-data = bytes(channels)
-header = (struct.pack("<8sH", b"Art-Net\0", 0x5000)
-          + struct.pack(">HBBBBH", 14, self.sequence, 0,
-                        universe & 0xFF, (universe >> 8) & 0x7F, len(data)))
-self.sock.sendto(header + data, (ip, PORT))
-self.sequence = self.sequence % 255 + 1
-```
-
-- `struct.pack(formát, hodnoty...)` ze standardní knihovny poskládá čísla do bajtů podle **formátovacího řetězce**: první znak je pořadí bajtů (`<` little, `>` big), pak pro každou hodnotu jedno písmeno: `8s` = 8 bajtů textu, `H` = 2bajtové číslo bez znaménka, `B` = 1bajtové číslo.
-- `b"Art-Net\0"` je bajtový řetězec, `\0` je ten nulový bajt na konci.
-- `universe & 0xFF` = **bitový AND** s 255, nechá jen spodních 8 bitů. `universe >> 8` = posun o 8 bitů doprava (vydělení 256), `& 0x7F` (127) nechá 7 bitů. Číslo universa tak rozdělíme na dva bajty. U nás je universe max 15, takže Net je vždycky 0.
-- `header + data` spojí dvě řady bajtů, `sendto(bajty, (ip, port))` je pošle jako jeden UDP paket.
-- `self.sequence % 255 + 1`: `%` je zbytek po dělení. Výsledek jde 1, 2, ..., 255, 1, ... a nikdy není 0. Podle sequence příjemce pozná, když mu nějaký paket přijde pozdě (starší než poslední).
-
-Takhle vypadá začátek skutečného paketu pro universe 0, sequence 1 (hex):
-
-```
-41 72 74 2d 4e 65 74 00   00 50   00 0e   01   00   00 00   02 00   [512 bajtů dat]
-A  r  t  -  N  e  t  \0   OpCode  verze  seq  phys  SubUni,Net  délka
-```
-
-Celý paket má 18 + 512 = 530 bajtů.
-
-Když síť nefunguje (třeba neexistující síťová karta), `sendto` vyhodí `OSError`. `send` ho nechytá, chytá ho až `LightPage._send` v `sirens/ui/light_page.py` a ukáže chybu ve stavovém štítku. Tam se taky před odesláním kontroluje, že zadaná IP je platná adresa (`ipaddress.IPv4Address`).
-
----
-
 ## Vlastní zpracování signálu a obrazu
 
 Tohle je místo, kde kód **sám** počítá se signálem, a ne jen volá hotovou funkci knihovny. Dobré to mít v hlavě na obhajobu.
@@ -535,7 +433,6 @@ Tohle je místo, kde kód **sám** počítá se signálem, a ne jen volá hotovo
 6. **Síla pásem** (`analyzer.py:128–136`): výběr košů maskou, maximum, převod dB -> 0..1.
 7. **Logaritmické převzorkování spektra** (`features.py:31, 41`).
 8. **Detekce úderu** (`features.py:46–61`): klouzavý průměr, práh, minimální pauza, doznívání.
-9. **Vyhlazení světla** (`rig.py:34`): stejný typ jednopólového filtru (stará hodnota * keep + nová * (1 - keep)).
 
 **Obrazový signál:**
 
@@ -554,13 +451,12 @@ Tohle je místo, kde kód **sám** počítá se signálem, a ne jen volá hotovo
 ## Kde se to napojuje
 
 - `sirens/audio/engine.py`, `AudioEngine.__init__`: vytvoří `self.analyzer = Analyzer(self.source, sample_rate)`. `source` je součet všech nástrojů před hlasitostí.
-- `sirens/ui/main_frame.py`, `_on_tick` (30x za sekundu): `analyzer.update()`, pak `sound_page.tick(analyzer, fresh)`, `visual_page.tick(analyzer, dt)` (když je Visual vidět nebo je otevřený Fullscreen) a vždycky `light_page.tick(analyzer)`.
+- `sirens/ui/main_frame.py`, `_on_tick` (30x za sekundu): `analyzer.update()`, pak `sound_page.tick(analyzer, fresh)`, `visual_page.tick(analyzer, dt)` (když je Visual vidět nebo je otevřený Fullscreen).
 - `sirens/ui/sound_page.py`, `tick`: čte `analyzer.scope()`, `peak_level_db()`, `freqs`, `spectrum`, `peak_frequency()` a konstantu `SCOPE_VIEW` pro osciloskop a spektrum v záložce Sound.
 - `sirens/ui/visual_page.py`: vytvoří `Painter()`, menu vrstev staví z `layers.CATALOG`, v `tick` volá `painter.render(analyzer, dt)` a výsledek pošle do `VisualView` a `FullscreenWindow`.
-- `sirens/ui/views.py`, `VisualView.show`: převede pole z Painteru na `wx.Bitmap`. `LightView` kreslí náhled barvy světla.
-- `sirens/ui/light_page.py`: vytvoří `LightRig()` a `ArtNetSender()`. V `tick` volá `rig.update(analyzer.bands())`, v `_send` pak `sender.send(ip, rig.universe(), rig.channels())`, při zavření `sender.close()`.
-- `sirens/session.py`: `capture` ukládá `painter.layers` (jméno, hodnoty sliderů, zapnuto) a `rig.settings`, `restore` je zase vytvoří přes `LAYERS_BY_NAME` (z `layers.CATALOG`).
-- Uvnitř této části: `painter.py` importuje `Features`, `HEIGHT`, `WIDTH` a `FeedbackLayer`. Obě `layers.py` i `rig.py` stavějí na `sirens/param.py` (`Adjustable`, `Param`, `Choice`), `painter.py` na `sirens/stack.py`.
+- `sirens/ui/views.py`, `VisualView.show`: převede pole z Painteru na `wx.Bitmap`.
+- `sirens/session.py`: `capture` ukládá `painter.layers` (jméno, hodnoty sliderů, zapnuto), `restore` je zase vytvoří přes `LAYERS_BY_NAME` (z `layers.CATALOG`).
+- Uvnitř této části: `painter.py` importuje `Features`, `HEIGHT`, `WIDTH` a `FeedbackLayer`. `layers.py` staví na `sirens/param.py` (`Adjustable`, `Param`, `Choice`), `painter.py` na `sirens/stack.py`.
 
 ---
 
@@ -568,9 +464,9 @@ Tohle je místo, kde kód **sám** počítá se signálem, a ne jen volá hotovo
 
 Nejsou to chyby, ale když se zeptají „proč to dělá tohle“, hodí se to vědět:
 
-- Spektrum se nepočítá každý snímek, ale jen když je hotový nový úsek (zhruba každý druhý snímek). Features a světlo se ale přepočítávají každý snímek, takže občas pracují se stejnými daty dvakrát. Úseky taky nejdou plynule za sebou: nahrávání dalšího se spustí až v tiku, takže kousek zvuku mezi nimi se neanalyzuje. Pro obraz a světlo to nevadí.
+- Spektrum se nepočítá každý snímek, ale jen když je hotový nový úsek (zhruba každý druhý snímek). Features se ale přepočítávají každý snímek, takže občas pracují se stejnými daty dvakrát. Úseky taky nejdou plynule za sebou: nahrávání dalšího se spustí až v tiku, takže kousek zvuku mezi nimi se neanalyzuje. Pro obraz to nevadí.
 - Rozlišení spektra je 21,5 Hz, takže u nejnižších bodů logaritmického spektra (pod ~350 Hz) připadá na jeden koš analyzátoru víc bodů a Ring tam ukazuje „schody“ (několik stejných bodů vedle sebe).
-- Vyhlazení světla i doznívání beatu jsou „za snímek“, ne „za sekundu“. Kdyby aplikace běžela na jiném FPS, reagovaly by trochu jinak rychle.
+- Doznívání beatu je „za snímek“, ne „za sekundu“. Kdyby aplikace běžela na jiném FPS, reagovalo by trochu jinak rychle.
 - Glow počítá záři z toho, co je nakreslené **nad ním** v seznamu. Když ho dáš úplně nahoru, září jen paměť z minulého snímku (nebo nic).
 
 ---
@@ -600,12 +496,3 @@ Painter si pamatuje poslední snímek. Když je v seznamu Feedback, začne se od
 
 **8. Která vrstva je čistě vaše operace nad obrazem? Vysvětli ji.**
 Třeba Mirror: levou půlku pole obrátím (`[:, ::-1]`) a zapíšu do pravé, stejně tak horní do spodní. Nebo Warp: mapu posunů spočítám sám ze sinusovek a OpenCV `remap` ji jen aplikuje.
-
-**9. Co posíláte do světla a jak?**
-Basy, středy a výšky (0..1) vyhladím a použiju jako R, G, B. Vynásobím jasem a 255, zapíšu na kanály Address, Address+1, Address+2 do seznamu 512 DMX kanálů. Ten zabalím do paketu Art-Net (ArtDmx: hlavička 18 bajtů + 512 bajtů dat) a pošlu UDP na port 6454.
-
-**10. Proč UDP a co je v hlavičce Art-Net?**
-UDP nečeká na potvrzení, je rychlé a ztracený paket nevadí, protože za 33 ms letí nový. Hlavička: „Art-Net\0“, OpCode 0x5000 (little-endian), verze 14 (big-endian), sequence 1..255, physical 0, universe ve dvou bajtech, délka dat (big-endian). Skládá se přes `struct.pack`.
-
-**11. Jak jste to testovali bez skutečného světla?**
-Záložka Light má náhled (barevný kruh s hodnotami R, G, B). Pakety se dají posílat na `127.0.0.1` a zobrazit v QLC+ nebo Capture na stejném počítači.

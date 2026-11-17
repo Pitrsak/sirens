@@ -12,9 +12,9 @@ nepředpokládá, všechno se vysvětluje od nuly.
 | [01-zaklady.md](01-zaklady.md) | minimum Pythonu, pyo, wxPython, numpy a zvuku, které kód používá | druhá, pak se k ní vracej |
 | [10-zvuk.md](10-zvuk.md) | jak vzniká zvuk: engine, nástroj, rack, bloky | jádro, číst pečlivě |
 | [20-pisen-a-data.md](20-pisen-a-data.md) | píseň, patterny, přehrávač, ukládání | |
-| [30-obraz-a-svetlo.md](30-obraz-a-svetlo.md) | analýza zvuku (DFT), obraz z vrstev, světlo přes Art-Net | jádro, číst pečlivě |
+| [30-obraz-a-svetlo.md](30-obraz-a-svetlo.md) | analýza zvuku (DFT), obraz z vrstev | jádro, číst pečlivě |
 | [40-okno-a-ovladaci-prvky.md](40-okno-a-ovladaci-prvky.md) | hlavní okno, jak funguje wxPython, vlastní slidery a tlačítka | |
-| [50-zalozky.md](50-zalozky.md) | záložky Sound / Song / Visual / Light, piano roll, časová osa, klávesy | |
+| [50-zalozky.md](50-zalozky.md) | záložky Sound / Song / Visual, piano roll, časová osa, klávesy | |
 | [90-otazky.md](90-otazky.md) | otázky, které můžou padnout u zkoušky, s odpověďmi | na konec, jako test |
 | [99-slovnicek.md](99-slovnicek.md) | slovníček pojmů | kdykoli narazíš na neznámé slovo |
 
@@ -32,7 +32,7 @@ Spuštění (macOS, ve složce projektu; první dva řádky jen poprvé, viz REA
 1. Sirens je desktopová aplikace v Pythonu, kde si ze zvukových bloků poskládáš nástroj (záložka **Sound**).
 2. Z nástrojů pak na **Song** složíš píseň: až 8 stop, každá má patterny s notami a časovou osu.
 3. Na **Visual** se z vrstev skládá abstraktní obraz, který reaguje na to, co právě hraje.
-4. Na **Light** se ze zvuku počítá barva RGB světla a posílá se po síti protokolem Art-Net.
+4. Zvuk jedné stopy (obálku a bloky, bez not) jde na Sound uložit jako **preset** do souboru a zase načíst (skupina Preset, tlačítka Save / Load, soubory v `assets/presets`).
 5. Všechno se samo ukládá (autosave) a dá se to uložit i otevřít jako soubor.
 
 Knihovny: **pyo** (zvuk), **wxPython** (okna a ovládání), **opencv-python** (kreslení do obrazu;
@@ -59,11 +59,8 @@ sirens/
     features.py          z analýzy spočítá basy, středy, výšky, úder...
     layers.py            všechny druhy vrstev obrazu
     painter.py           poskládá vrstvy do jednoho snímku
-  light/
-    rig.py               ze zvuku spočítá barvu světla
-    artnet.py            pošle barvu po síti (Art-Net, UDP)
   ui/                    všechno, co je vidět: okno, záložky, slidery, tlačítka
-assets/                  uložené písně (.json) a zvuky
+assets/                  uložené písně (.json) a presety zvuků (assets/presets)
 ```
 
 Rozdělení je podle toho, **co** kód dělá: `audio/` nic neví o oknech, `visual/` nic neví o pyo
@@ -95,8 +92,8 @@ Tohle je asi nejdůležitější věc na pochopení celé aplikace. Běží v n�
 | Kdo | Jak často | Co dělá | Kde |
 |---|---|---|---|
 | **zvukové vlákno pyo** | pořád, po kouscích 512 vzorků (~11,6 ms) | počítá samotný zvuk ze všech pyo objektů a posílá ho do repro | uvnitř knihovny pyo (v C) |
-| **hodiny přehrávače** | 48x za takt (při 110 BPM asi 20x za s) | když hraje píseň, posílá nástrojům noty a hýbe automatizovanými slidery | `sirens/audio/player.py` |
-| **hlavní vlákno wx** | při každé události + časovač 30x za s | reaguje na myš a klávesy, překresluje, počítá obraz, světlo, autosave | `sirens/ui/main_frame.py`, `_on_tick` |
+| **hodiny přehrávače** | 48x za takt (při 110 BPM asi 20x za s) | když hraje píseň, posílá nástrojům noty | `sirens/audio/player.py` |
+| **hlavní vlákno wx** | při každé události + časovač 30x za s | reaguje na myš a klávesy, překresluje, počítá obraz, autosave | `sirens/ui/main_frame.py`, `_on_tick` |
 
 Python kód nikdy nepočítá jednotlivé vzorky zvuku. Python jen **postaví síť pyo objektů**
 („tenhle oscilátor jde do tohohle filtru“) a mění jejich parametry. Vzorky pak počítá
@@ -120,7 +117,7 @@ stiskneš A na klávesnici počítače
 Sekvencer (přehrávač písně) jde úplně stejnou cestou, jen místo klávesy posílá noty
 `player.py` podle patternů. MIDI klávesnice taky, jen zprávu posílá přímo zařízení.
 
-## Cesta zvuku do obrazu a světla
+## Cesta zvuku do obrazu
 
 ```
 engine.source (součet všech stop)
@@ -129,9 +126,6 @@ engine.source (součet všech stop)
   -> visual/features.py    z toho: hlasitost, basy, středy, výšky, úder (beat), tvar vlny
   -> visual/painter.py     projde vrstvy shora dolů, každá kreslí / upravuje obraz (numpy pole)
   -> ui/visual_page.py     ukáže obrázek v okně (nebo přes celou obrazovku)
-
-  -> light/rig.py          z basů / středů / výšek spočítá barvu R, G, B
-  -> light/artnet.py       zabalí ji do Art-Net paketu a pošle po síti (UDP)
 ```
 
 Všechno tohle se děje v `MainFrame._on_tick` 30x za sekundu.
@@ -145,13 +139,12 @@ Podrobně je to rozepsané v kapitolách, tady jen kde hledat:
 - **Vlastnosti zvuku pro obraz:** pásma, vyhlazování, detekce úderu, `sirens/visual/features.py` (kapitola 30).
 - **Obraz:** vrstvy počítají s poli pixelů (míchání, posuny, zpětná vazba, záře), `sirens/visual/layers.py` (kapitola 30).
 - **Zvuk:** bloky, kde si tvar vlny, zkreslení nebo ořez počítáme sami do tabulek, `sirens/audio/blocks.py` (kapitola 10).
-- **Světlo:** výpočet barvy ze zvuku a ruční sestavení Art-Net paketu po bajtech (kapitola 30).
 
 ## Jak se to učit
 
 1. Přečti 01, aspoň zběžně.
 2. Přečti 10 a u toho otevři `sirens/audio/blocks.py`. Komentáře v kódu jsou psané tak, aby šlo číst kód a průvodce vedle sebe.
-3. Pak 30 (obraz a světlo), to jsou dvě části, na které se nejspíš budou ptát nejvíc.
+3. Pak 30 (analýza zvuku a obraz), na tu část se nejspíš budou ptát nejvíc.
 4. 20, 40 a 50 stačí pochopit v principu: co kde je a proč.
 5. Nakonec 90 jako test. Na co neumíš odpovědět, vrať se do kapitoly.
 

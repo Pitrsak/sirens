@@ -6,7 +6,7 @@ Tahle kapitola je o "mozku" aplikace, který není vidět. Okna a tlačítka jso
 
 - **spuštění programu** (`main.py`, `sirens/__main__.py`, `sirens/__init__.py`),
 - **slidery obecně** (`sirens/param.py`) a **seznam věcí pod sebou** (`sirens/stack.py`),
-- **píseň** jako data: stopy, patterny, noty, časová osa, automatizace (`sirens/song.py`),
+- **píseň** jako data: stopy, patterny, noty, časová osa (`sirens/song.py`),
 - **přehrávač**, který podle těch dat posílá noty nástrojům ve správný čas (`sirens/audio/player.py`),
 - **ukládání a načítání** do souboru JSON a autosave (`sirens/session.py`).
 
@@ -17,9 +17,9 @@ Kde to v aplikaci uvidíš:
 | Spuštění | `python main.py` nebo `python -m sirens` |
 | Píseň, stopy, patterny | záložka **Song**: editor patternu (mřížka s notami), časová osa, panel vpravo (Mode Loop / Song, tempo, délka písně, Add track, Duplicate, Remove) |
 | Přehrávač | tlačítko **Play / Stop** vpravo nahoře a mezerník |
-| Automatizace | v záložce Song: vybereš slider a kreslíš body na časovou osu |
 | Uložení / načtení | tlačítka **Save** a **Open** v hlavičce, autosave sám na pozadí |
 | Kopírování zvuku stopy | záložka **Sound** (kopírovat / vložit zvuk), využívá `session.sound_of` a `apply_sound` |
+| Preset zvuku | záložka **Sound**, skupina **Preset**: Save / Load do souboru `.json` (složka `assets/presets`) |
 
 ## Jak to spolu souvisí
 
@@ -45,7 +45,6 @@ vlákno hodin (Player._run)
 Player._on_tick
    ├─ vypne noty, kterým skončila délka   ──► engine.send_note(kanál, výška, 0)
    ├─ spočítá, kde v písni jsme (takt, tik v taktu)
-   ├─ (režim Song) nastaví automatizované slidery  ──► owner.set(...)
    └─ zahraje noty, které na tomhle tiku začínají   ──► engine.send_note(kanál, výška, síla)
                                                            │
                                                            ▼
@@ -55,7 +54,7 @@ Player._on_tick
 Ukládání a autosave:
 
 ```
-Song + Painter + LightRig ──session.capture()──► slovník (dict)
+Song + Painter ──session.capture()──► slovník (dict)
                                                    │
                  ┌─────────────────────────────────┼─────────────────────────────┐
                  ▼                                 ▼                             ▼
@@ -66,7 +65,7 @@ Song + Painter + LightRig ──session.capture()──► slovník (dict)
      session.read(soubor)
                  │
                  └──────────► session.restore()
-                          (postaví píseň, obraz a světlo znovu)
+                          (postaví píseň a obraz znovu)
 ```
 
 ## Pojmy z Pythonu, které tu potkáš
@@ -120,7 +119,7 @@ def main() -> None:
 
 ### `sirens/param.py`: popis slideru a základ pro všechno se slidery
 
-Problém, který to řeší: zvukové bloky, vrstvy obrazu, nástroj i světlo mají slidery. Kdyby měl každý svůj ručně psaný panel, bylo by to hodně opakovaného kódu. Místo toho každá věc jen **popíše**, jaké slidery má, a UI je vykreslí jednou společnou funkcí (`Sidebar.add_params`).
+Problém, který to řeší: zvukové bloky, vrstvy obrazu, i nástroj mají slidery. Kdyby měl každý svůj ručně psaný panel, bylo by to hodně opakovaného kódu. Místo toho každá věc jen **popíše**, jaké slidery má, a UI je vykreslí jednou společnou funkcí (`Sidebar.add_params`).
 
 **Dataclass** (`sirens/param.py:12`): dekorátor `@dataclass` nad třídou řekne Pythonu "tohle je jen balík dat", a Python sám vyrobí `__init__` z vyjmenovaných polí. Takže `Param("Frequency", 20, 20000, 440, "Hz", log=True)` funguje, aniž bys psal `__init__`. Pole s `= ...` mají výchozí hodnotu a dají se vynechat.
 
@@ -139,17 +138,15 @@ Pole `Param`:
 
 `Choice(...)` (`sirens/param.py:26`) je zkratka pro parametr s možnostmi (např. tvar vlny Sine / Saw / Square). Vrátí obyčejný `Param` od 0 do počtu možností minus 1, s krokem 1. Hodnota je tedy číslo vybrané možnosti (0 = Sine, 1 = Saw...).
 
-`Adjustable` (`sirens/param.py:36`) je **základní třída** pro všechno, co má slidery. Dědí z ní `Instrument`, `Block`, `Layer` a `LightRig`.
+`Adjustable` (`sirens/param.py:36`) je **základní třída** pro všechno, co má slidery. Dědí z ní `Instrument`, `Block` a `Layer`.
 
 ```python
 def __init__(self):
     self.settings = {p.label: p.default for p in self.PARAMS}
-    self.automation = {}
 ```
 
 - `{p.label: p.default for p in self.PARAMS}` je **dict comprehension**: zkrácený zápis "projdi všechny parametry a z každého udělej dvojici popisek -> výchozí hodnota". Výsledek je třeba `{"Attack": 0.01, "Decay": 0.3, ...}`.
 - `self.PARAMS` je seznam definovaný v potomkovi (třída `Instrument` má svůj, `Block` svůj). V `Adjustable` je prázdný.
-- `automation` je slovník popisek -> {takt: hodnota}, viz automatizace níže.
 - `get` a `set` jen čtou a zapisují do `settings`. Potomci si `set` přepíšou, aby změna šla rovnou i do zvuku (např. `Instrument.set` při změně "Volume" posune hlasitost v pyo).
 
 ### `sirens/stack.py`: seznam věcí pod sebou
@@ -188,10 +185,11 @@ Bez hudební teorie:
 
 - **Doba** je jedno "ťuknutí", když počítáš do rytmu. **Tempo** v BPM (beats per minute) říká, kolik dob je za minutu. Při tempu 120 trvá doba 60 / 120 = 0,5 s.
 - **Takt** je kus času o 4 dobách (`BEATS_PER_BAR = 4`). Při tempu 120 tedy 2 sekundy. Časová osa je rozdělená na takty, číslují se od 0.
-- **Krok** je políčko v mřížce editoru patternu. Kroků je vždycky 16 na takt (`STEPS_PER_BAR = 16`), takže jeden krok = šestnáctinová nota, 4 kroky na dobu. (Dřív tu byly i trioly, kdy měl takt 12 nebo 24 kroků; ty jsme zahodili, protože je píseň nepoužívá a dělaly kód složitější.)
-- **Tik** je nejmenší jednotka času přehrávače. `TICKS_PER_BAR = 48` tiků na takt, takže jeden krok = `48 // 16` = 3 tiky.
+- **Krok** je políčko v mřížce editoru patternu. Normálně je kroků 16 na takt (`STEPS_PER_BAR = 16`), takže jeden krok = šestnáctinová nota, 4 kroky na dobu. Pattern si ale může přepnout **jemnou mřížku (Fine)**, která má 48 kroků na takt (viz `Pattern` níže). (Dřív tu byly i trioly, kdy měl takt 12 nebo 24 kroků; ty jsme zahodili a jemná mřížka je nahrazuje.)
+- **Tik** je nejmenší jednotka času přehrávače. `TICKS_PER_BAR = 48` tiků na takt, takže jeden krok šestnáctinové mřížky = `48 // 16` = 3 tiky. U jemné mřížky je krok přesně 1 tik.
+- Povolené mřížky jsou v n-tici `GRIDS = (STEPS_PER_BAR, TICKS_PER_BAR)`, tedy `(16, 48)`.
 
-#### `Note` (`sirens/song.py:39`)
+#### `Note` (`sirens/song.py:37`)
 
 Dataclass se čtyřmi čísly:
 
@@ -200,17 +198,17 @@ Dataclass se čtyřmi čísly:
 - `length`: jak dlouho zní, v krocích,
 - `velocity`: síla úhozu 1..127, tj. jak nahlas (MIDI standard).
 
-#### `Pattern` (`sirens/song.py:46`)
+#### `Pattern` (`sirens/song.py:44`)
 
-Pattern je krátký kus hudby, 1, 2 nebo 4 takty dlouhý, se seznamem not. Má `bars` (počet taktů) a `notes`.
+Pattern je krátký kus hudby, 1, 2 nebo 4 takty dlouhý, se seznamem not. Má `bars` (počet taktů), `grid` (kolik kroků má jeden takt: 16, nebo 48 u jemné mřížky) a `notes`.
 
-- `steps()` = `bars * 16`, kolik políček má celý pattern.
-- `ticks_per_step()` = `48 // 16` = 3. `//` je **celočíselné dělení** (bez desetinné části).
+- `steps()` = `bars * grid`, kolik políček má celý pattern (u 1 taktu 16, nebo 48 u Fine).
+- `ticks_per_step()` = `TICKS_PER_BAR // grid`, tedy `48 // 16` = 3, u jemné mřížky `48 // 48` = 1. `//` je **celočíselné dělení** (bez desetinné části).
 - `note_at(step, pitch)` najde notu, která na daném políčku zní (začíná tam, nebo tam ještě trvá). Používá to editor patternu, když klikneš do mřížky.
 
-Dřív tu byla i metoda `set_grid`, která při přepnutí mřížky přepočítala noty z triol na šestnáctiny. S triolama zmizela. Starý soubory, který trioly měly, se při načtení přepočítají (`session._restore_track`), aby stará píseň nezněla jinak.
+**Jemná mřížka (Fine)** se hodí na linky hrané "od ruky", které do šestnáctin nesednou. Krok je tam jen jeden tik, takže nota může začít kdekoli. Přepíná se v záložce Song volbou **Grid** (`SongPage._set_grid`). Ta noty přepočítá, aby pořád zněly stejně: z 16 na 48 všechno krát 3 (přesně), z 48 na 16 děleno 3 a zaokrouhleno (noty mezi šestnáctinami se posunou na nejbližší). Kdyby dvě noty skončily na stejném kroku a stejné výšce, `notes.setdefault` nechá jen tu první. Starý soubory s triolama (grid 12 nebo 24) se při načtení přepočítají na šestnáctiny (`session._restore_track`).
 
-#### `Track` (`sirens/song.py:66`)
+#### `Track` (`sirens/song.py:65`)
 
 Stopa = jeden nástroj a jeho noty. V `__init__`:
 
@@ -221,9 +219,7 @@ Stopa = jeden nástroj a jeho noty. V `__init__`:
 - `muted`: ztlumená stopa.
 - `view_low = 48`: jen kam je odrolovaný editor patternu (nejnižší viditelná nota). Nic nehraje, je to pohled.
 
-`automated_owners()` vrátí nástroj a všechny jeho bloky, tedy všechno, co může mít automatizaci.
-
-`pattern_at_bar(bar)` (`sirens/song.py:80`) odpoví na otázku "co tahle stopa hraje v taktu `bar`, a kolikátý takt toho patternu to je?":
+`pattern_at_bar(bar)` (`sirens/song.py:75`) odpoví na otázku "co tahle stopa hraje v taktu `bar`, a kolikátý takt toho patternu to je?":
 
 ```python
 name = self.arrangement.get(bar)
@@ -240,7 +236,7 @@ return pattern, (bar - start) % pattern.bars
 - Smyčka `while` couvá doleva, dokud je v předchozím taktu stejný pattern. Tím najde `start`, kde tenhle souvislý kus začal.
 - `(bar - start) % pattern.bars`: `%` je **zbytek po dělení**. Když je 2taktový pattern A položený na taktech 4, 5, 6, 7, pak takt 6 je `(6 - 4) % 2 = 0`, tedy znovu 1. takt patternu. Pattern se tak opakuje dokola, dokud na časové ose pokračuje.
 
-#### `Song` (`sirens/song.py:97`)
+#### `Song` (`sirens/song.py:92`)
 
 - `tempo = 110`, `bars = 32` (délka časové osy), `tracks = []`.
 - `add_track()`:
@@ -252,30 +248,8 @@ return pattern, (bar - start) % pattern.bars
 
   První řádek je **set comprehension** (množina obsazených kanálů), druhý **list comprehension** (seznam volných kanálů 1..8). `range(1, 9)` dá čísla 1 až 8 (konec se nepočítá). Nová stopa dostane první volný kanál. Když žádný není, vrátí `None` a UI ukáže hlášku. Jméno se skládá **f-stringem** `f"Track {len(self.tracks) + 1}"`: do `{}` se dosadí hodnota výrazu.
 - `remove_track()` nejdřív vyprázdní rack nástroje (tím nástroj ztichne) a pak stopu vyhodí ze seznamu.
-- `last_bar()` (`sirens/song.py:117`) vrátí, kolik taktů je potřeba přehrát do konce posledního použitého taktu. Takty za délkou písně (`bar < self.bars`) se nepočítají: když píseň zkrátíš, data za koncem zůstanou, jen nehrají, a po prodloužení se vrátí. `+ 1` je tam proto, že takty se číslují od 0: když je poslední použitý takt 7, píseň má 8 taktů.
+- `last_bar()` (`sirens/song.py:112`) vrátí, kolik taktů je potřeba přehrát do konce posledního použitého taktu. Takty za délkou písně (`bar < self.bars`) se nepočítají: když píseň zkrátíš, data za koncem zůstanou, jen nehrají, a po prodloužení se vrátí. `+ 1` je tam proto, že takty se číslují od 0: když je poslední použitý takt 7, píseň má 8 taktů.
 - `outputs()` vrátí zvukové výstupy všech nástrojů. Engine je sečte do jednoho mixu.
-
-#### Automatizace a `lane_value` (`sirens/song.py:132`)
-
-**Automatizace** = slider, který se během písně hýbe sám. Uživatel na časovou osu nakreslí body "v taktu 0 má Filter hodnotu 200, v taktu 8 hodnotu 2000". Uloží se to do `owner.automation["Frequency"] = {0: 200, 8: 2000}`. Jednomu slovníku `{takt: hodnota}` se říká **lane** (pruh).
-
-`lane_value(lane, position)` spočítá hodnotu v libovolném místě. `position` je v taktech a může být desetinná (3.5 = půlka 4. taktu):
-
-```python
-bars = sorted(list(lane))
-if position <= bars[0]:
-    return lane[bars[0]]
-for left, right in zip(bars, bars[1:]):
-    if left <= position < right:
-        t = (position - left) / (right - left)
-        return lane[left] + t * (lane[right] - lane[left])
-return lane[bars[-1]]
-```
-
-- `sorted(list(lane))`: seřazené takty, kde jsou body.
-- Před prvním bodem platí hodnota prvního bodu, za posledním hodnota posledního (`bars[-1]` je poslední prvek seznamu).
-- `zip(bars, bars[1:])` dá dvojice sousedů: pro `[0, 8, 16]` to jsou `(0, 8)` a `(8, 16)`. `bars[1:]` je seznam bez prvního prvku (**slicing**).
-- **Lineární interpolace**: `t` je 0 na levém bodu a 1 na pravém. Hodnota je levá hodnota plus `t`-násobek rozdílu. V půlce mezi 200 a 2000 tedy 1100. Na grafu je to rovná čára mezi body.
 
 ### `sirens/audio/player.py`: přehrávač
 
@@ -289,15 +263,15 @@ Proč ne časovač okna (`wx.Timer`, který okno používá 30x za sekundu na p�
 
 Proč ne `pyo.Metro` (metronom přímo v pyo, ten by byl nejpřesnější)? Protože jeho zpětné volání běží ve zvukovém vlákně pyo a noty poslané odtamtud pyo zahodí.
 
-#### Stav přehrávače (`sirens/audio/player.py:25`)
+#### Stav přehrávače (`sirens/audio/player.py:25`, `__init__`)
 
-- `mode`: `"Loop"` (každá stopa dokola hraje svůj právě editovaný pattern, na zkoušení) nebo `"Song"` (hraje se časová osa a hýbe se automatizace).
+- `mode`: `"Loop"` (každá stopa dokola hraje svůj právě editovaný pattern, na zkoušení) nebo `"Song"` (hraje se časová osa).
 - `playing`: běží hodiny?
 - `start_bar`: odkud hrát v režimu Song (klikneš do hlavičky časové osy).
 - `tick`: tik, který se zahraje **příště**. `position`: tik, který **právě** hraje (podle něj UI kreslí ukazatel).
 - `pending`: seznam not, které hrají a čekají na vypnutí. Každá položka je `[zbývá_tiků, kanál, výška]`.
 
-#### Délka tiku (`sirens/audio/player.py:37`)
+#### Délka tiku (`sirens/audio/player.py:36`)
 
 ```python
 return 60 / self.song.tempo * BEATS_PER_BAR / TICKS_PER_BAR
@@ -305,7 +279,7 @@ return 60 / self.song.tempo * BEATS_PER_BAR / TICKS_PER_BAR
 
 60 / tempo = délka doby v sekundách. Krát 4 = délka taktu. Děleno 48 = délka tiku. Při tempu 120: 0,5 s × 4 / 48 ≈ 0,042 s, tedy asi 42 ms. Tempo se čte při každém tiku znovu, takže `set_tempo` jen přepíše `song.tempo` a hodiny se přizpůsobí samy.
 
-#### `play` a `stop` (`sirens/audio/player.py:47`, `:58`)
+#### `play` a `stop` (`sirens/audio/player.py:46`, `:57`)
 
 ```python
 self.thread = threading.Thread(target=self._run, daemon=True)
@@ -320,7 +294,7 @@ self.thread.start()
 
 `toggle()` je zkratka: když hraje, zastav, jinak spusť.
 
-#### Hodiny: `_run` (`sirens/audio/player.py:77`)
+#### Hodiny: `_run` (`sirens/audio/player.py:76`)
 
 ```python
 next_time = time.perf_counter()
@@ -340,13 +314,13 @@ while self.playing:
 - `if delay > 0`: když jsme pozadu, nespí se vůbec a tik se dotáhne hned.
 - **`try / except`**: když v `_on_tick` nastane chyba, program nespadne; `except` ji chytí, `traceback.print_exc()` ji vypíše do terminálu a hodiny jedou dál.
 
-#### Jeden tik: `_on_tick` (`sirens/audio/player.py:94`)
+#### Jeden tik: `_on_tick` (`sirens/audio/player.py:93`)
 
 Má tři kroky.
 
-**1) Vypnout doznělé noty** (`:99`). Každé položce v `pending` ubere jeden tik. Když dojde na 0, pošle note-off (`send_note(kanál, výška, 0)`), jinak ji nechá v seznamu `still`. Vypínání je schválně **před** zapínáním: když po notě hned navazuje stejně vysoká nota, nejdřív se stará vypne a pak nová zapne, a nová tak nezanikne.
+**1) Vypnout doznělé noty** (`:96`). Každé položce v `pending` ubere jeden tik. Když dojde na 0, pošle note-off (`send_note(kanál, výška, 0)`), jinak ji nechá v seznamu `still`. Vypínání je schválně **před** zapínáním: když po notě hned navazuje stejně vysoká nota, nejdřív se stará vypne a pak nová zapne, a nová tak nezanikne.
 
-**2) Kde jsme** (`:109`):
+**2) Kde jsme** (`:105`):
 
 ```python
 if self.mode == "Loop":
@@ -361,15 +335,15 @@ bar, tick_in_bar = divmod(self.tick, TICKS_PER_BAR)
 - **`divmod(a, b)`** vrátí najednou celočíselný podíl a zbytek. Tik 100 → `divmod(100, 48) = (2, 4)`: takt 2, tik 4 v tom taktu.
 - Zápis `x if podmínka else y` je **podmíněný výraz**: hodnota x, když podmínka platí, jinak y.
 
-**3) Zahrát noty** (`:129`): pro každou stopu se spočítá `tick_in_pattern`, tedy kolikátý tik od začátku patternu teď je.
+**3) Zahrát noty** (`:114`): pro každou stopu se spočítá `tick_in_pattern`, tedy kolikátý tik od začátku patternu teď je.
 
 - Loop: `self.tick % (pattern.bars * 48)`. Kratší pattern se ve smyčce opakuje (1taktový se ve 4taktové smyčce zahraje čtyřikrát).
-- Song: nejdřív `_automate` nastaví automatizované slidery podle přesné pozice `bar + tick_in_bar / 48` (takže se hýbou plynule i uvnitř taktu, ne skokem po taktech). Pak `pattern_at_bar(bar)` řekne, co stopa v tomhle taktu hraje; když nic, `continue` přeskočí na další stopu. `tick_in_pattern = bar_in_pattern * 48 + tick_in_bar`.
-- Ztlumená stopa (`muted`) noty nehraje, ale automatizace se u ní počítá dál.
+- Song: `pattern_at_bar(bar)` řekne, co stopa v tomhle taktu hraje; když nic, `continue` přeskočí na další stopu. `tick_in_pattern = bar_in_pattern * 48 + tick_in_bar`.
+- Ztlumená stopa (`muted`) noty nehraje.
 
 Nakonec `position = tick` (pro UI) a `tick += 1`.
 
-#### `_play_notes` (`sirens/audio/player.py:135`)
+#### `_play_notes` (`sirens/audio/player.py:132`)
 
 ```python
 per_step = pattern.ticks_per_step()
@@ -383,70 +357,65 @@ for note in list(pattern.notes):
         self.pending.append([note.length * per_step, channel, note.pitch])
 ```
 
-- Tik, který nepadne přesně na začátek kroku (zbytek `rest` není 0), nic nespouští. Noty se tedy spouští jen na tikách 0, 3, 6, 9... (protože krok = 3 tiky).
+- Tik, který nepadne přesně na začátek kroku (zbytek `rest` není 0), nic nespouští. U šestnáctinové mřížky se noty spouští jen na tikách 0, 3, 6, 9... (protože krok = 3 tiky); u jemné mřížky na každém tiku (krok = 1 tik, `rest` je pořád 0).
 - `list(pattern.notes)` udělá kopii seznamu. Proč? Uživatel může zrovna v okně kreslit noty (jiné vlákno mění seznam) a procházet seznam, který se pod rukama mění, je nebezpečné.
 - `send_note` pošle notu nástroji jako **MIDI zprávu** (stejnou, jako by přišla z MIDI klávesnice). Nástroj v pyo (`Notein`) ji přijme na svém kanálu.
 - Do `pending` se zapíše, za kolik tiků notu vypnout: délka v krocích × tiků na krok.
-
-#### `_automate` (`sirens/audio/player.py:151`)
-
-Projde nástroj a bloky stopy, pro každou lane spočítá `lane_value` a pokud se hodnota opravdu změnila (o víc než `1e-6`, tj. 0,000001, malá rezerva kvůli nepřesnosti desetinných čísel), zavolá `owner.set(...)`. Tím se změní nastavení i zvuk. `list(owner.automation.items())` je zase kopie, protože uživatel může zrovna kreslit body.
 
 ### `sirens/session.py`: ukládání, načítání, autosave, kopírování
 
 #### Co je JSON
 
-**JSON** je textový formát na data. Vypadá skoro jako slovníky a seznamy v Pythonu: `{"tempo": 110, "tracks": [...]}`. Modul `json` umí `json.dumps(data)` (Python → text) a `json.loads(text)` (text → Python). Omezení: **klíče slovníku musí být text**. Proto se takty v aranžmá a v automatizaci ukládají jako `"3"` místo `3` a při načtení se zase převádí `int(bar)`.
+**JSON** je textový formát na data. Vypadá skoro jako slovníky a seznamy v Pythonu: `{"tempo": 110, "tracks": [...]}`. Modul `json` umí `json.dumps(data)` (Python → text) a `json.loads(text)` (text → Python). Omezení: **klíče slovníku musí být text**. Proto se takty v aranžmá ukládají jako `"3"` místo `3` a při načtení se zase převádí `int(bar)`.
 
-#### Uložení: `capture` (`sirens/session.py:67`)
+#### Uložení: `capture` (`sirens/session.py:58`)
 
-`capture(song, painter, rig)` posbírá celý stav aplikace do jednoho slovníku: tempo, délka, stopy, vrstvy obrazu a nastavení světla. Ukládá se jen to, co uživatel vytvořil, ne pyo objekty (ty se při načtení postaví znovu).
+`capture(song, painter)` posbírá celý stav aplikace do jednoho slovníku: tempo, délka, stopy a vrstvy obrazu. Ukládá se jen to, co uživatel vytvořil, ne pyo objekty (ty se při načtení postaví znovu).
 
-Stopu převádí `_track` (`:52`), zvuk stopy `sound_of` (`:37`):
+Stopu převádí `_track` (`:43`), zvuk stopy `sound_of` (`:30`):
 
 ```python
 return {
     "name": track.name,
     ...
     **sound_of(track),
-    "patterns": {name: {"bars": pattern.bars,
+    "patterns": {name: {"bars": pattern.bars, "grid": pattern.grid,
                         "notes": [[n.step, n.pitch, n.length, n.velocity] for n in pattern.notes]}
                  for name, pattern in track.patterns.items()},
     "arrangement": {str(bar): name for bar, name in track.arrangement.items()},
 }
 ```
 
-- **`**slovník`** uvnitř `{...}` "vysype" všechny dvojice z jiného slovníku do tohohle. `sound_of` vrací `{"instrument": ..., "automation": ..., "blocks": [...]}` a ty tři klíče se tak stanou součástí slovníku stopy.
+- **`**slovník`** uvnitř `{...}` "vysype" všechny dvojice z jiného slovníku do tohohle. `sound_of` vrací `{"instrument": ..., "blocks": [...]}` a ty dva klíče se tak stanou součástí slovníku stopy.
 - `.items()` dává dvojice (klíč, hodnota) ze slovníku.
 - Nota se ukládá jako seznam čtyř čísel `[krok, výška, délka, síla]`, je to kratší než slovník.
 - `dict(instrument.settings)` dělá **kopii**. Bez ní by se do výsledku dostal odkaz na živé nastavení a pozdější změna slideru by změnila i "uložený" stav.
-- `_lanes` (`:30`) převede automatizace na textové klíče a prázdné lane vynechá.
 - `block.extra()` je místo pro data mimo slidery (např. cesta k načtenému zvukovému souboru).
 
-#### Načtení: `restore` (`sirens/session.py:153`)
+#### Načtení: `restore` (`sirens/session.py:136`)
 
 Postaví aplikaci podle slovníku:
 
 1. Smaže všechny stopy. `for track in list(song.tracks)`: prochází **kopii** seznamu, protože z originálu během cyklu maže (mazat ze seznamu, přes který zrovna jdeš, přeskakuje prvky).
 2. Nastaví tempo a délku. `min(MAX_BARS, max(MIN_BARS, ...))` je ořez do rozsahu 4..512.
 3. Pro každou uloženou stopu vytvoří novou (`add_track`) a naplní ji (`_restore_track`). Když se nic nenačte, přidá aspoň jednu prázdnou stopu.
-4. Vyprázdní obraz a přidá vrstvy podle jména (`LAYERS_BY_NAME`), nastaví světlo.
+4. Vyprázdní obraz a přidá vrstvy podle jména (`LAYERS_BY_NAME`).
 
 Odolnost proti starým nebo poškozeným souborům:
 
 - Všude se používá `data.get(klíč, výchozí)`. Když klíč v souboru chybí, nespadne to a vezme se výchozí hodnota.
-- `_set_values` (`:81`) nastaví jen slidery, které objekt opravdu má. Neznámé (ze starší verze) přeskočí.
+- `_set_values` (`:71`) nastaví jen slidery, které objekt opravdu má. Neznámé (ze starší verze) přeskočí.
 - Blok nebo vrstva s neznámým jménem se vynechá (`if block_class is None: continue`).
-- `_list` (`:143`) vezme ze souboru jen položky, které jsou slovníky; cokoli jiného bere jako prázdný seznam.
-- Starší soubory měly navíc `"grid"` (mřížku patternu) a noty někdy jen 3 čísla. Noty bez čtvrtého čísla dostanou výchozí `velocity` 100 (`Note(0, 60, 4)`). Když měl soubor trioly (`grid` 12 nebo 24), kroky se při načtení přepočítají na šestnáctiny (`_restore_track`), aby stará píseň nehrála jinak. `*n[3:]` v tom přepočtu znamená "zbytek seznamu od čtvrtého prvku", takže síla noty zůstane, i když tam je.
+- `_list` (`:130`) vezme ze souboru jen položky, které jsou slovníky; cokoli jiného bere jako prázdný seznam.
+- Soubor ukládá `"grid"` (16 nebo 48) u každého patternu. Starší soubory ho někdy neměly (platí 16) a noty někdy měly jen 3 čísla. Noty bez čtvrtého čísla dostanou výchozí `velocity` 100 (`Note(0, 60, 4)`). Když měl soubor trioly (`grid` 12 nebo 24), `new_grid = grid if grid in GRIDS else STEPS_PER_BAR` je převede na šestnáctiny a kroky se přepočítají (`_restore_track`, `:95`), aby stará píseň nehrála jinak. `*n[3:]` v tom přepočtu znamená "zbytek seznamu od čtvrtého prvku", takže síla noty zůstane, i když tam je.
 
 `BLOCKS_BY_NAME` (`:24`) je slovník jméno → třída, např. `{"Filter": FilterBlock, ...}`. Díky němu se z textu v souboru dá zase vyrobit správný blok.
 
-`apply_sound` (`:94`) nastaví stopě zvuk ze slovníku: vyprázdní rack, nastaví obálku, přidá bloky a na konci zavolá `rack.changed()`, aby se bloky znovu propojily (některé mohly být uložené vypnuté a `add` je propojil ještě jako zapnuté).
+`apply_sound` (`:78`) nastaví stopě zvuk ze slovníku: vyprázdní rack, nastaví obálku, přidá bloky a na konci zavolá `rack.changed()`, aby se bloky znovu propojily (některé mohly být uložené vypnuté a `add` je propojil ještě jako zapnuté).
 
-`duplicate` (`:129`) je hezký trik: stopu převede na slovník (`_track`), změní jméno, vymaže aranžmá a nahraje to do nové stopy (`_restore_track`). Kopie tedy zadarmo. Aranžmá je prázdné schválně: kdyby kopie hrála ve stejných taktech, jen by zdvojnásobila hlasitost.
+`duplicate` (`:116`) je hezký trik: stopu převede na slovník (`_track`), změní jméno, vymaže aranžmá a nahraje to do nové stopy (`_restore_track`). Kopie tedy zadarmo. Aranžmá je prázdné schválně: kdyby kopie hrála ve stejných taktech, jen by zdvojnásobila hlasitost.
 
-#### Bezpečný zápis: `write` (`sirens/session.py:177`)
+#### Bezpečný zápis: `write` (`sirens/session.py:159`)
 
 ```python
 path.parent.mkdir(parents=True, exist_ok=True)
@@ -460,7 +429,13 @@ os.replace(temp, path)
 - Nejdřív se zapisuje do **dočasného souboru** `.tmp`, a teprve celý hotový se `os.replace` přejmenuje na cílové jméno. Přejmenování je jeden krok (atomická operace): buď proběhne celé, nebo vůbec. Kdyby program spadl uprostřed zápisu, poškodí se jen `.tmp` a starý soubor zůstane celý.
 - `indent=1` dělá odsazený, čitelný JSON. `encoding="utf-8"` kvůli diakritice.
 
-`read` (`:189`) přečte text a `json.loads` z něj udělá slovník.
+`read` (`:171`) přečte text a `json.loads` z něj udělá slovník.
+
+#### Preset zvuku
+
+**Preset** je zvuk jedné stopy uložený do vlastního souboru. Je to přesně ten slovník, který vrací `session.sound_of(track)` (`"instrument"` s obálkou a `"blocks"` s bloky), uložený přes `session.write` jako JSON. Noty a časová osa v něm nejsou, takže se dá nahrát do jakékoli stopy. Soubory leží v `assets/presets` (podsložky `drums`, `bass`, `synth`).
+
+Tlačítka jsou v záložce Sound (`sirens/ui/sound_page.py`, `_save_preset` a `_load_preset`). Load použije `session.apply_sound`, tedy stejnou funkci jako Paste sound a jako načtení celé písně. Soubor bez klíče `"blocks"` odmítne (celá píseň ze Save v hlavičce ho nemá), takže se omylem nenahraje špatný soubor. Formát se od celé písně liší tím, že nemá `tempo`, `tracks` ani `visual`.
 
 #### Autosave
 
@@ -483,8 +458,8 @@ Protože krok patternu je šestnáctina a na takt jich je 16. 48 je dělitelné 
 **5. Jak přehrávač pozná, kdy notu vypnout?**
 Při zapnutí si ji zapíše do `pending` s počtem tiků do konce (délka v krocích × tiky na krok). Každý tik se u všech čekajících not ubere jeden; když dojde na nulu, pošle se nota s velocity 0 (puštění klávesy). Při Stop se vypnou všechny čekající.
 
-**6. Jak funguje automatizace?**
-Ke každému slideru může být slovník takt → hodnota. Přehrávač v režimu Song při každém tiku spočítá přesnou pozici v taktech (třeba 3,25) a `lane_value` mezi dvěma sousedními body lineárně dopočítá hodnotu. Před prvním a za posledním bodem drží krajní hodnotu.
+**6. Co je jemná mřížka (Fine) a co se stane s notami, když ji přepnu?**
+Normálně má takt 16 kroků po 3 tiky. U Fine má 48 kroků po 1 tiku, takže nota může začít na kterémkoli tiku. Při přepnutí 16 → 48 se kroky násobí třemi (přesně), při 48 → 16 se dělí třemi a zaokrouhlí, takže noty mezi šestnáctinami se posunou. Když dvě skončí na stejném kroku a výšce, zůstane první (`setdefault`).
 
 **7. Co se stane, když program spadne při ukládání?**
 Nic zlého: zapisuje se do dočasného `.tmp` souboru a až hotový se jedním krokem přejmenuje (`os.replace`) na cílový. Starý soubor zůstane celý. Navíc autosave každé 2 s ukládá do `~/.sirens/autosave.json` a při startu se načte.
@@ -504,8 +479,8 @@ Kdo volá do souborů z téhle kapitoly:
   - při zavření okna `player.close()`.
 - **`sirens/ui/song_page.py`** (záložka Song): režim Loop/Song (`player.mode`), tempo `player.set_tempo`, `Song.add_track` / `remove_track`, `session.duplicate`, konstanty `MAX_TRACKS`, `MIN_BARS`, `MAX_BARS`, `PATTERN_NAMES`.
 - **`sirens/ui/pattern_view.py`** (editor patternu): `Pattern.note_at`, `Note`, `track.view_low`, ukazatel přehrávání z `player.position`.
-- **`sirens/ui/timeline_view.py`** (časová osa): zapisuje `track.arrangement` a body automatizace do `owner.automation`, nastavuje `player.start_bar`, kreslí ukazatel z `player.position / TICKS_PER_BAR`.
-- **`sirens/ui/sound_page.py`** (záložka Sound): kopírování zvuku stopy přes `session.sound_of` a `session.apply_sound`.
-- **Dědí z `Adjustable`**: `Instrument` (`sirens/audio/instrument.py`), `Block` (`sirens/audio/blocks.py`), `Layer` (`sirens/visual/layers.py`), `LightRig` (`sirens/light/rig.py`). `Param` a `Choice` používají všechny tyhle soubory pro své slidery.
+- **`sirens/ui/timeline_view.py`** (časová osa): zapisuje `track.arrangement`, nastavuje `player.start_bar`, kreslí ukazatel z `player.position / TICKS_PER_BAR`.
+- **`sirens/ui/sound_page.py`** (záložka Sound): kopírování zvuku stopy přes `session.sound_of` a `session.apply_sound` a presety (Save / Load do souboru stejným slovníkem).
+- **Dědí z `Adjustable`**: `Instrument` (`sirens/audio/instrument.py`), `Block` (`sirens/audio/blocks.py`), `Layer` (`sirens/visual/layers.py`). `Param` a `Choice` používají všechny tyhle soubory pro své slidery.
 - **Dědí ze `Stack`**: `Rack` (`sirens/audio/rack.py`) a `Painter` (`sirens/visual/painter.py`).
 - **Přehrávač volá ven**: `engine.send_note` (`sirens/audio/engine.py`), který notu pošle do pyo jako MIDI zprávu.

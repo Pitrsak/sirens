@@ -10,19 +10,13 @@ Abecedně. Podrobnější vysvětlení je v kapitole v závorce.
 
 **Aranžmá (arrangement)** — co která stopa hraje v kterém taktu písně; časová osa na Song. (20)
 
-**Art-Net** — protokol, který posílá DMX hodnoty po síti v UDP paketech na port 6454. (30)
-
 **Atribut** — proměnná patřící objektu (`self.name`) nebo třídě (`NAME`). (01)
-
-**Automatizace** — slider, který se sám mění v čase písně podle bodů na časové ose. (20)
 
 **Beat (úder)** — chvíle, kdy basy prudce vyskočí nad svůj průměr. (30)
 
 **Blok** — jeden díl zvuku nástroje: zdroj (vyrábí zvuk) nebo efekt (upravuje ho). (10)
 
 **BPM** — tempo, počet dob za minutu. (01, 20)
-
-**Broadcast** — adresa, na kterou když pošleš paket, dostanou ho všichni v síti. (30)
 
 **Buffer** — kousek vzorků, který zvuková karta zpracuje naráz (512 = ~11,6 ms). (01)
 
@@ -36,11 +30,9 @@ Abecedně. Podrobnější vysvětlení je v kapitole v závorce.
 
 **DFT / FFT** — Fourierova transformace: rozklad úseku zvuku na frekvence. FFT je rychlý algoritmus pro totéž; my počítáme DFT podle definice. (30)
 
-**DMX** — standard pro světla: 512 kanálů, každý 0..255. (30)
-
 **Docstring** — popis funkce nebo třídy v trojitých uvozovkách hned pod `def` / `class`. (01)
 
-**Doba / takt / krok / tik** — doba = jeden úder tempa; takt = 4 doby; krok = jedno políčko mřížky patternu; tik = 1/48 taktu, nejmenší jednotka přehrávače. (20)
+**Doba / takt / krok / tik** — doba = jeden úder tempa; takt = 4 doby; krok = jedno políčko mřížky patternu (16 na takt, v jemné mřížce 48); tik = 1/48 taktu, nejmenší jednotka přehrávače. (20)
 
 **Envelope (obálka)** — jak se hlasitost noty mění v čase, viz ADSR. (10)
 
@@ -50,7 +42,7 @@ Abecedně. Podrobnější vysvětlení je v kapitole v závorce.
 
 **Frekvence (Hz)** — kolikrát za sekundu se vlna opakuje = jak vysoko tón zní. (01)
 
-**Grid (mřížka)** — dělení taktu v patternu; v Sirens pevně 16 kroků na takt (šestnáctiny). (20)
+**Grid (mřížka)** — dělení taktu v patternu; v Sirens buď 16 kroků na takt (šestnáctiny), nebo jemná mřížka (Fine) po 48, kde je krok stejně dlouhý jako tik. (20)
 
 **Hann (okno)** — křivka, kterou se před DFT ztlumí kraje úseku. (30)
 
@@ -82,6 +74,8 @@ Abecedně. Podrobnější vysvětlení je v kapitole v závorce.
 
 **Piano roll** — mřížka na Song, kde se kreslí noty: vodorovně čas, svisle výška. (50)
 
+**Preset** — uložený zvuk jedné stopy (obálka a bloky, bez not) v souboru JSON; na Sound se ukládá a načítá tlačítky Save / Load. (50)
+
 **Pyo objekt** — signál, který počítá pyo server: oscilátor, filtr, tabulka... (01)
 
 **Rack** — seznam bloků jednoho nástroje, zvuk teče shora dolů. (10)
@@ -98,8 +92,6 @@ Abecedně. Podrobnější vysvětlení je v kapitole v závorce.
 
 **Slider** — pruh, kterým se nastavuje číslo; v Sirens vlastní kreslený (`slider.py`). (40)
 
-**Socket** — „zásuvka“ do sítě, přes kterou program posílá pakety. (30)
-
 **Spektrum** — kolik je ve zvuku které frekvence. (30)
 
 **Stack** — obecný seznam prvků pod sebou, ze kterého dědí Rack i Painter. (20)
@@ -114,11 +106,7 @@ Abecedně. Podrobnější vysvětlení je v kapitole v závorce.
 
 **Třída** — šablona pro objekty (`class Track:`). (01)
 
-**UDP** — síťový protokol: pošli paket a nečekej na potvrzení. (30)
-
 **uint8 / float32** — typ čísel v poli: celá 0..255 (zobrazení) / desetinná (výpočty). (30)
-
-**Universe** — jedna sada 512 DMX kanálů; Art-Net jich umí víc. (30)
 
 **Velocity (síla)** — jak silně je nota zahraná = jak hlasitě zazní, 1..127. (20)
 

@@ -1,15 +1,14 @@
-# 50 — Záložky: Sound, Song, Visual, Light, piano roll, časová osa a klávesy
+# 50 — Záložky: Sound, Song, Visual, piano roll, časová osa a klávesy
 
 Tahle kapitola je o tom, co uživatel v aplikaci **vidí a na co kliká**. Hlavní okno
-(`sirens/ui/main_frame.py`) má nahoře čtyři tlačítka záložek: **Sound**, **Song**,
-**Visual**, **Light**. Každá záložka je jedna třída v jednom souboru:
+(`sirens/ui/main_frame.py`) má nahoře tři tlačítka záložek: **Sound**, **Song**
+a **Visual**. Každá záložka je jedna třída v jednom souboru:
 
 | Záložka | Soubor | Třída |
 |---|---|---|
 | Sound | `sirens/ui/sound_page.py` | `SoundPage` |
 | Song | `sirens/ui/song_page.py` | `SongPage` |
 | Visual | `sirens/ui/visual_page.py` | `VisualPage` (+ `FullscreenWindow`) |
-| Light | `sirens/ui/light_page.py` | `LightPage` |
 
 A k tomu čtyři "kreslené" ovládací prvky, které si záložky vkládají dovnitř:
 
@@ -30,23 +29,23 @@ jsou popsaná v [20-pisen-a-data.md](20-pisen-a-data.md). Tady se je jen naučí
 
 ## Úvod: co v jednotlivých záložkách uvidíš a co tam děláš
 
-Všechny čtyři záložky mají stejnou kostru: **vlevo velká plocha** (grafy, editor, obraz,
-náhled světla), **vpravo panel** (`Sidebar`) se slidery a tlačítky. Mezi nimi svislá čára
-(`divider`). Hlavní okno všechny čtyři záložky vytvoří hned při startu a pak jen
+Všechny tři záložky mají stejnou kostru: **vlevo velká plocha** (grafy, editor, obraz),
+**vpravo panel** (`Sidebar`) se slidery a tlačítky. Mezi nimi svislá čára
+(`divider`). Hlavní okno všechny tři záložky vytvoří hned při startu a pak jen
 přepíná, která je vidět (`MainFrame._select_tab` volá `page.Show(True/False)`).
 
 ### Sound: stavění zvuku a hraní
 
 Co vidíš: nahoře graf tvaru vlny (SCOPE), pod ním spektrum (SPECTRUM), pod ním štítek
 s cestou zvuku (třeba `Track 1: Oscillator -> Filter`) a úplně dole klaviaturu.
-Vpravo: Master hlasitost, přepínač Keys (Play / Hold), výběr stopy, jméno, obálka
-(Attack, Decay, Sustain, Release, Volume) a bloky nástroje s tlačítkem **Add block**.
+Vpravo: Master hlasitost, přepínač Keys (Play / Hold), výběr stopy, jméno, skupina
+Preset (Save / Load), obálka (Attack, Decay, Sustain, Release, Volume) a bloky nástroje s tlačítkem **Add block**.
 
 Krok za krokem:
 
 1. **Klikneš na Add block a vybereš Oscillator.** `StackEditor` (soubor `stack_editor.py`)
    přidá blok do racku nástroje a zavolá `SoundPage.refresh`, který celý pravý panel
-   smaže a postaví znovu, už s novým blokem a jeho slidery (`sirens/ui/sound_page.py:101`).
+   smaže a postaví znovu, už s novým blokem a jeho slidery (`sirens/ui/sound_page.py:140`).
 2. **Zmáčkneš na klávesnici A.** `KeyboardPlayer.FilterEvent` (`sirens/ui/keys.py:107`)
    chytí stisk, spočítá číslo noty 60 a pošle ji enginu jako MIDI zprávu. Nástroj
    vybrané stopy začne hrát. Na klaviatuře se klávesa C4 obarví, protože nota je teď
@@ -57,28 +56,35 @@ Krok za krokem:
    zapne a nechá znít, druhý ji vypne, takže můžeš mezitím točit slidery a poslouchat.
 5. **Klikneš myší na klávesu na obrazovce.** `PianoView._on_down` najde, která klávesa
    je pod myší, a zavolá `KeyboardPlayer.press`, tedy úplně stejnou cestu jako klávesnice.
-6. **Copy sound / Paste sound.** Zkopíruje zvuk (obálku, bloky i jejich automatizace,
-   ne noty) jedné stopy a vloží ho do jiné.
+6. **Copy sound / Paste sound.** Zkopíruje zvuk (obálku a bloky, ne noty) jedné stopy
+   a vloží ho do jiné.
+7. **Preset Save / Load.** Save uloží zvuk vybrané stopy (obálku a bloky, ne noty) do
+   souboru `.json`, ve výchozím dialogu ve složce `assets/presets` (podsložky `drums`,
+   `bass`, `synth`). Load vybraný soubor načte a zvuk vybrané stopy jím nahradí; noty
+   a časová osa zůstanou. Je to stejný zvuk jako u Copy sound, jen v souboru, takže ho
+   můžeš nahrát do jakékoli stopy a kdykoli později. Soubor, který není preset
+   (třeba celá uložená píseň), se odmítne s hláškou.
 
 ### Song: noty, patterny a časová osa
 
 Co vidíš: nahoře **piano roll** (mřížka: svisle výšky tónů, vodorovně čas), dole
-**časová osa** (řádek pro každou stopu, sloupec pro každý takt, úplně dole řádek
-automatizace). Vpravo: Loop / Song, Tempo, Song length, nastavení stopy
-a patternu (Pattern A..H, Length), Automation.
+**časová osa** (řádek pro každou stopu, sloupec pro každý takt). Vpravo: Loop / Song,
+Tempo, Song length, nastavení stopy a patternu (Pattern A..H, Length, Grid).
 
 Slovníček na rozjezd (podrobně v [20-pisen-a-data.md](20-pisen-a-data.md)):
 
 - **takt** = kus času, 4 doby. Při tempu 120 bpm (doby za minutu) trvá doba 0,5 s, takt 2 s.
-- **krok** = nejmenší políčko v mřížce. Mřížka je vždycky po šestnáctinách: **16 kroků
-  na takt**, takže jedna doba jsou 4 kroky. Trioly ani jiné dělení aplikace neumí.
+- **krok** = nejmenší políčko v mřížce. Normálně je mřížka po šestnáctinách (**Grid
+  16ths**): **16 kroků na takt**, takže jedna doba jsou 4 kroky. Volba **Fine** dá
+  **48 kroků na takt** (3 kroky na šestnáctinu) na noty, které do šestnáctin nesednou.
+  Trioly jako zvláštní dělení aplikace neumí.
 - **pattern** = krátký kousek s notami (1, 2 nebo 4 takty). Každá stopa jich má osm, A..H.
 - **arrangement** = která stopa hraje který pattern v kterém taktu písně.
 
 Krok za krokem:
 
 1. **Klikneš do prázdného políčka v piano rollu.** `PatternView._on_down`
-   (`sirens/ui/pattern_view.py:104`) přepočítá pixely myši na (krok, výška), vytvoří
+   (`sirens/ui/pattern_view.py:103`) přepočítá pixely myši na (krok, výška), vytvoří
    `Note(krok, výška, 1)`, přidá ji do patternu a hned ji krátce zahraje (`_preview`).
 2. **Táhneš doprava.** `_on_motion` počítá z polohy myši, kde má nota končit, a mění
    její `length`. Nota se natahuje po krocích.
@@ -95,9 +101,12 @@ Krok za krokem:
    pattern už je, ho naopak smaže.
 8. **Přepneš Mode na Song a pustíš.** Hraje celá časová osa, svislá čára ukazatele
    jede po taktech a pohled se sám posouvá.
-9. **Vybereš v Automation slider (třeba Filter: Cutoff)** a klikáš do spodního řádku
-   časové osy. Každý klik uloží hodnotu pro jeden takt, mezi body se hodnota při
-   přehrávání v režimu Song plynule mění. Pravé tlačítko bod smaže.
+9. **Přepneš Grid na Fine.** `SongPage._set_grid` přepočítá noty patternu (z 16 na 48 kroků
+   na takt všechny pozice a délky krát 3), takže znějí úplně stejně, jen se teď dají
+   klikat po jemnějších krocích. Zpátky na 16ths se pozice dělí třemi a zaokrouhlí,
+   takže noty mezi šestnáctinami se posunou na nejbližší. Když tím dvě noty skončí na stejném
+   kroku a stejné výšce, nechá se jen první. U Fine kreslí piano roll čáry jen po
+   šestnáctinách, aby mřížka nebyla šedá kaše.
 
 ### Visual: obraz z vrstev
 
@@ -112,17 +121,6 @@ efekty...) se slidery, tlačítko **Add layer** a nahoře **Fullscreen**.
    je připojený projektor (druhá obrazovka), otevře se na něm. Esc nebo dvojklik ho zavře.
 
 Jak se obraz počítá, je v [30-obraz-a-svetlo.md](30-obraz-a-svetlo.md). Tady je jen jeho zobrazení.
-
-### Light: světlo přes Art-Net
-
-Co vidíš: vlevo náhled barvy světla a stavový štítek, vpravo IP adresa, tlačítko
-Start / Stop sending a slidery světla (Brightness, Smoothing, Address, Universe).
-
-1. **Napíšeš IP adresu** světla nebo pultu. Uloží se do `self.ip` při každém znaku.
-2. **Start sending.** Od teď `LightPage.tick` každý snímek pošle barvu po síti.
-3. Basy svítí červeně, středy zeleně, výšky modře. Barva se počítá pořád, i když je
-   vidět jiná záložka (hlavní okno volá `light_page.tick` vždycky), aby světlo svítilo
-   s hudbou, ať se díváš kamkoli.
 
 ---
 
@@ -167,7 +165,7 @@ Puštění klávesy jde stejnou cestou, jen s velocity 0 (= note off).
 ```
  klik do mřížky (x, y)
         |
- PatternView._on_down (pattern_view.py:104)
+ PatternView._on_down (pattern_view.py:103)
         |   _at(x, y) -> (krok, výška)
         |   Note(krok, výška, 1) -> pattern.notes.append(...)
         |   preview(výška) -> SongPage._preview -> engine.send_note (krátce zahraje)
@@ -219,7 +217,6 @@ každá stránka se dá pochopit samostatně.
     |- sound_page.tick(analyzer, fresh)    jen když je Sound vidět: klaviatura, grafy
     |- song_page.tick()                    jen když je Song vidět: posun ukazatele
     |- visual_page.tick(analyzer, dt)      když je Visual vidět nebo je otevřený fullscreen
-    |- light_page.tick(analyzer)           VŽDY (světlo má svítit pořád)
 ```
 
 ---
@@ -282,15 +279,14 @@ Každý je vysvětlený tady jednou, v textu dál už jen odkaz.
   předat "co má udělat".
 - **Callback**: funkce předaná jako parametr, kterou někdo jiný zavolá později.
   `SoundPage(..., on_track_change)` dostane funkci a zavolá ji, když uživatel vybere stopu.
-- **Uzávěr (closure)**: `lambda: self.lane` (`sirens/ui/song_page.py:42`) si pamatuje
-  `self`, ne hodnotu `self.lane`. Pokaždé, když ji timeline zavolá, vrátí **aktuální**
-  `self.lane`. Timeline tak vždycky ví, kterou automatizaci kreslit, a nikdo jí to nemusí
-  posílat při každé změně.
+- **Uzávěr (closure)**: `lambda i: keys.set_hold(i == 1)` (`sirens/ui/sound_page.py:74`)
+  si pamatuje proměnnou `keys` z místa, kde vznikla. Když ji panel později zavolá, pořád
+  ví, na jaký `KeyboardPlayer` se má ptát, a nikdo jí ho nemusí posílat znovu.
 - **Podmíněný výraz** `a if podmínka else b`: `"Unmute" if self.track.muted else "Mute"`.
 - **Řetězené porovnání** `0 <= step < n` znamená `0 <= step and step < n`.
 - **Ořezání do rozsahu** `min(horní, max(dolní, x))`: `max` nepustí pod dolní mez, `min` nad horní.
 - **Seznam z cyklu (list comprehension)**: `[track.name for track in self.song.tracks]`
-  vyrobí seznam jmen. Může mít i `if` a dva `for` za sebou (`song_page.py`, `lane_options`).
+  vyrobí seznam jmen. Může mít i `if` (`[n for n in pattern.notes if n.step < pattern.steps()]` v `song_page.py`, `_set_length`).
 - **Slovník**: `d.get(k)` vrátí hodnotu nebo `None` (nespadne, když klíč chybí);
   `d.pop(k, None)` hodnotu vyndá a smaže; `d.setdefault(k, {})` vrátí hodnotu, a když
   klíč chybí, nejdřív tam dá `{}`.
@@ -302,9 +298,8 @@ Každý je vysvětlený tady jednou, v textu dál už jen odkaz.
   se ptá "je to přesně tahle stopa?".
 - **`a or b`**: když je `a` prázdné (prázdný text, 0, None), vezme se `b`.
   `text or self.track.name` = prázdné jméno nepovolím, nechám staré.
-- **`@staticmethod`**: metoda ve třídě, která nepotřebuje `self` (`timeline_view.py:98`).
 - **`try / except`**: zkus to, a když to spadne s danou chybou, udělej tohle místo pádu
-  programu (`light_page.py:68`).
+  programu (`sound_page.py:124`, načtení presetu).
 - **`isinstance(x, Třída)`**: je `x` objekt téhle třídy?
 - **`chr(65)`** = `"A"`: číslo znaku na znak.
 - **Formát v f-stringu**: `{seconds % 60:02d}` = celé číslo, aspoň 2 číslice, doplnit nulou
@@ -502,7 +497,7 @@ změní, proto ji `SoundPage.tick` každý snímek překreslí.
 **Účel:** editor not jednoho patternu. Svisle výška tónu (nahoře vysoko), vodorovně čas
 v krocích. Nota = obdélník: kde začíná = kdy zazní, jak je dlouhý = jak dlouho zní.
 
-**Rozměry** (`pattern_view.py:28-33`):
+**Rozměry** (`pattern_view.py:27-32`):
 
 ```
  0,0 +--------+--------------------------------------------+
@@ -525,7 +520,7 @@ v krocích. Nota = obdélník: kde začíná = kdy zazní, jak je dlouhý = jak 
 **Převod pixely <-> buňka.** Tohle je jádro celého souboru a typická otázka u zkoušky.
 
 ```python
-def _cell(self):                                         # pattern_view.py:63
+def _cell(self):                                         # pattern_view.py:62
     w, _ = self.GetClientSize()
     grid_h = self._vel_top() - VEL_GAP - HEADER_H
     return (w - LABEL_W) / self.pattern().steps(), grid_h / ROWS
@@ -536,7 +531,7 @@ desetinné číslo, aby mřížka přesně vyplnila prostor. Když se okno zvět
 zvětší (prvek se při `EVT_SIZE` překreslí).
 
 ```python
-def _step_at(self, x):                                   # pattern_view.py:70
+def _step_at(self, x):                                   # pattern_view.py:69
     cell_w, _ = self._cell()
     return int((x - LABEL_W) // cell_w)
 ```
@@ -545,7 +540,7 @@ def _step_at(self, x):                                   # pattern_view.py:70
 vejde = číslo kroku.
 
 ```python
-def _at(self, x, y):                                     # pattern_view.py:80
+def _at(self, x, y):                                     # pattern_view.py:79
     _, cell_h = self._cell()
     step = self._step_at(x)
     row = int((y - HEADER_H) // cell_h)
@@ -570,7 +565,7 @@ Spočítaný příklad: prvek 900 x 500 px, mřížka 16 kroků, `view_low = 48`
 Kreslení dělá přesný opak: krok -> `x = LABEL_W + step * cell_w`, nota -> řádek
 `view_low + ROWS - 1 - pitch` -> `y = HEADER_H + row * cell_h`.
 
-**`_on_down`** (`pattern_view.py:104`):
+**`_on_down`** (`pattern_view.py:103`):
 
 1. Klik v pruhu Vel (`y >= _vel_top()`) -> začne tažení síly úhozu.
 2. Jinak `_at` -> (krok, výška). Mimo mřížku nic.
@@ -579,7 +574,7 @@ Kreslení dělá přesný opak: krok -> `x = LABEL_W + step * cell_w`, nota -> �
 4. Jinak se vytvoří `Note(step, pitch, 1)` (délka 1 krok), přidá se, zahraje se
    (`self.preview(pitch)`) a začne tažení (`drag_note`, `CaptureMouse`).
 
-**`_on_motion`** (`pattern_view.py:128`), prodlužování tažením:
+**`_on_motion`** (`pattern_view.py:127`), prodlužování tažením:
 
 ```python
 step = self._step_at(event.GetX())
@@ -591,7 +586,7 @@ Konec noty je krok pod myší, ale `max` ho nepustí před začátek noty (táhn
 a `min` ne za konec patternu. Délka je `konec - začátek + 1`, protože i krok, na kterém
 nota začíná, patří do ní (nota od kroku 2 do kroku 5 je dlouhá 4 kroky: 2, 3, 4, 5).
 
-**`_set_velocity`** (`pattern_view.py:91`), síla úhozu z výšky myši:
+**`_set_velocity`** (`pattern_view.py:90`), síla úhozu z výšky myši:
 
 ```python
 unit = min(1.0, max(0.0, 1 - (y - self._vel_top()) / VEL_H))
@@ -606,17 +601,20 @@ na tom kroku **začínají**, takže akord se změní celý.
 **`_on_wheel`**: kolečko nahoru = `view_low + 1` (vidíš o půltón výš), dolů o půltón níž,
 ohlídané na rozsah.
 
-**`_on_paint`** (`pattern_view.py:155`) kreslí po vrstvách:
+**`_on_paint`** (`pattern_view.py:154`) kreslí po vrstvách:
 
 1. Řádky černých kláves tmavší (`pitch % 12 in BLACK`), u každého C jméno a čára.
-2. Svislé čáry: slabě každý krok, víc každá doba, nejvíc každý takt.
-   `per_beat = STEPS_PER_BAR // BEATS_PER_BAR` = kroků na dobu (16 // 4 = 4).
+2. Svislé čáry: slabě každá šestnáctina, víc každá doba, nejvíc každý takt.
+   `per_beat = pattern.grid // BEATS_PER_BAR` = kroků na dobu (16 // 4 = 4, u Fine 48 // 4 = 12).
+   `per_16th = pattern.grid // STEPS_PER_BAR` = kroků na šestnáctinu (1, u Fine 3):
+   `if step % per_16th: continue` přeskočí kroky, které nejsou na šestnáctině, takže
+   u Fine se nekreslí čára u každého z 48 kroků.
    Popisek doby: `bar, beat = divmod(step // per_beat, BEATS_PER_BAR)`.
    Např. krok 20: 20 // 4 = 5. doba (od 0), `divmod(5, 4) = (1, 1)`,
    napíše se `2.2` (2. takt, 2. doba, +1 protože lidi počítají od 1).
 3. Ukazatel přehrávání (jen v Loop):
    `step = self.player.position // pattern.ticks_per_step() % pattern.steps()`.
-   Přehrávač počítá v **tikách** (48 na takt). V mřížce 16 trvá krok 3 tiky. Tik 50 -> krok
+   Přehrávač počítá v **tikách** (48 na takt). V mřížce 16 trvá krok 3 tiky (u Fine 1 tik). Tik 50 -> krok
    16, `% 16` -> krok 0 (pattern o 1 taktu je u druhého průchodu zase na začátku).
 4. Noty: průhlednost `alpha = 60 + round(195 * velocity / 127)`, tedy od 60 (skoro
    průhledná) do 255 (plná).
@@ -625,22 +623,21 @@ ohlídané na rozsah.
 ### `sirens/ui/timeline_view.py`: časová osa
 
 **Účel:** řádek pro každou stopu, sloupec pro každý takt. Do taktu se "maluje" pattern.
-Nahoře čísla taktů (klik = odsud začne Song), vlevo jména stop a `M` (mute), dole řádek
-automatizace.
+Nahoře čísla taktů (klik = odsud začne Song), vlevo jména stop a `M` (mute).
 
-**Rozměry** (`timeline_view.py:28-33`): sloupec jmen `NAME_W = 130`, hlavička 22, řádek
-stopy 30, automatizace 80 px. Takt je široký aspoň `MIN_BAR_W = 14` px.
+**Rozměry** (`timeline_view.py:24-28`): sloupec jmen `NAME_W = 130`, hlavička 22, řádek
+stopy 30. Takt je široký aspoň `MIN_BAR_W = 14` px.
 
 **Převod x <-> takt:**
 
 ```python
-def _bar_w(self):                                         # timeline_view.py:62
+def _bar_w(self):                                         # timeline_view.py:56
     return max(MIN_BAR_W, (self.GetClientSize()[0] - NAME_W) / self.song.bars)
 
-def _x(self, bar):                                        # timeline_view.py:74
+def _x(self, bar):                                        # timeline_view.py:68
     return NAME_W + (bar - self.first_bar) * self._bar_w()
 
-def _bar_at(self, x):                                     # timeline_view.py:82
+def _bar_at(self, x):                                     # timeline_view.py:72
     bar = self.first_bar + int((x - NAME_W) // self._bar_w())
     return bar if x >= NAME_W and 0 <= bar < self.song.bars else None
 ```
@@ -658,13 +655,12 @@ od 0, v aplikaci se čísla píšou od 1, a to jen u každého čtvrtého: 1, 5,
 
 **`_row_at(y)`** stejně převádí y na stopu: `(y - HEADER_H) // ROW_H`.
 
-**`_on_down`** (`timeline_view.py:124`) rozhoduje podle toho, kam se kliklo:
+**`_on_down`** (`timeline_view.py:84`) rozhoduje podle toho, kam se kliklo:
 
 1. `y < HEADER_H` (hlavička): `player.start_bar = bar`.
-2. `y >= _lane_top()` (automatizace): `_set_lane` + chytit myš pro tažení.
-3. Jinak řádek stopy. Vlevo ve sloupci jmen: posledních 28 px je `M` (přepne `muted`),
+2. Jinak řádek stopy. Vlevo ve sloupci jmen: posledních 28 px je `M` (přepne `muted`),
    zbytek vybere stopu (`on_select`).
-4. Vpravo v taktech: **malování**.
+3. Vpravo v taktech: **malování**.
 
    ```python
    erase = track.arrangement.get(bar) == track.current
@@ -678,26 +674,7 @@ od 0, v aplikaci se čísla píšou od 1, a to jen u každého čtvrtého: 1, 5,
 **`_paint(bar)`**: `track.arrangement[bar] = name` nebo `track.arrangement.pop(bar, None)`.
 `arrangement` je obyčejný slovník "číslo taktu -> jméno patternu".
 
-**Automatizace: hodnota <-> výška** (`_to_unit`, `_from_unit`, `timeline_view.py:98`, `:104`).
-Řádek automatizace má výšku 80 px, dole minimum slideru, nahoře maximum. `unit` je
-poloha 0..1.
-
-```python
-if param.log:
-    return math.log(value / param.lo) / math.log(param.hi / param.lo)
-return (value - param.lo) / (param.hi - param.lo)
-```
-
-Lineární slider: obyčejný poměr. Logaritmický slider (třeba frekvence filtru 20..20000 Hz):
-přes logaritmus, takže uprostřed řádku je 632 Hz, ne 10000 Hz. Ucho vnímá výšku
-v poměrech (oktáva = 2x), proto "půlka na sluch" je geometrický střed. `_from_unit` je
-přesný opak (`lo * (hi / lo) ** unit`).
-
-`_set_lane` (`timeline_view.py:111`): `unit = 1 - (y - top) / LANE_H` (zase otočení, y roste
-dolů) a uloží `owner.automation[label][bar] = hodnota`. `setdefault` založí prázdný slovník,
-když slider ještě žádnou automatizaci nemá.
-
-**Kolečko** (`_on_wheel`, `timeline_view.py:182`):
+**Kolečko** (`_on_wheel`, `timeline_view.py:134`):
 
 ```python
 rotation = event.GetWheelRotation()
@@ -715,7 +692,7 @@ spoustu malých hodnot (třeba 10). Proto se otočení **sčítá** do `self.whe
 až je ho dost na celý cvak; zbytek zůstane na příště. Otočení dolů je záporné, a dolů
 má znamenat "dál v písni", proto se svislé otočení obrací. Jeden cvak = 4 takty.
 
-**`_on_paint`** (`timeline_view.py:208`):
+**`_on_paint`** (`timeline_view.py:152`):
 
 1. Při přehrávání v Song: takt přehrávání = `player.position // TICKS_PER_BAR`. Když
    uteče z výřezu, `_scroll_to(play_bar)` "otočí stránku".
@@ -724,15 +701,14 @@ má znamenat "dál v písni", proto se svislé otočení obrací. Jeden cvak = 4
 3. Čáry taktů, číslo u každého 4. taktu, značka `start_bar`.
 4. Patterny: obdélník v každém taktu. Když předchozí takt má stejný pattern (`continues`),
    kreslí se bez mezery a bez písmenka, takže 4 takty patternu A vypadají jako jeden blok.
-5. Automatizace: body (`DrawEllipse`) na levém okraji taktu, spojené čarou (`CreatePath`).
-6. Ukazatel přehrávání: svislá čára na `_x(position / TICKS_PER_BAR)`, tady obyčejné dělení,
+5. Ukazatel přehrávání: svislá čára na `_x(position / TICKS_PER_BAR)`, tady obyčejné dělení,
    takže se čára posouvá plynule i uvnitř taktu.
-7. Tenký posuvník nahoře ukazuje, jakou část písně výřez zobrazuje.
-8. Jména stop a `M` (červené, když je stopa ztlumená).
+6. Tenký posuvník nahoře ukazuje, jakou část písně výřez zobrazuje.
+7. Jména stop a `M` (červené, když je stopa ztlumená).
 
 ### `sirens/ui/sound_page.py`: záložka Sound
 
-**`SoundPage(wx.Panel)`** (`sound_page.py:30`), parametry: `engine`, `song`, `keys`
+**`SoundPage(wx.Panel)`** (`sound_page.py:42`), parametry: `engine`, `song`, `keys`
 (`KeyboardPlayer`), `on_track_change` (callback do hlavního okna).
 
 **`__init__`**: vlevo sloupec (`wx.BoxSizer(wx.VERTICAL)`) se `ScopeView`, `SpectrumView`,
@@ -749,48 +725,48 @@ z toho udělá `True` pro Hold a `False` pro Play.
 `self.editor = StackEditor(self.sidebar, "Add block", CATALOG, self.refresh)` - editor bloků
 (společný se záložkou Visual), po každé změně zavolá `self.refresh`.
 
-**`refresh`** (`sound_page.py:101`) - vzor, který uvidíš ve všech záložkách: **smaž panel
+**`refresh`** (`sound_page.py:140`) - vzor, který uvidíš ve všech záložkách: **smaž panel
 a postav ho znovu** podle aktuálního stavu. Je to jednodušší, než hlídat, co se změnilo.
-Postaví skupinu Track (Copy / Paste, dropdown stop, jméno), Envelope (slidery nástroje
+Postaví skupinu Track (Copy / Paste, dropdown stop, jméno), skupinu Preset (Save / Load), Envelope (slidery nástroje
 přes `add_params`) a bloky přes `editor.show`. Nakonec štítek s cestou zvuku
 (`rack.describe()`).
 
 **`_choose_track`** volá `on_track_change` přes `wx.CallAfter`: dropdown, ve kterém
 uživatel právě vybírá, je v panelu, který se kvůli tomu smaže a postaví znovu.
 
-**`tick`** (`sound_page.py:128`): každý snímek překreslí klaviaturu; grafy jen když
+**`_save_preset`** (`sound_page.py:109`) a **`_load_preset`** (`sound_page.py:118`): tlačítka
+skupiny Preset. Složka je `PRESET_FOLDER` (`assets/presets`, řádek 38) a jde do dialogu
+`wx.FileDialog` jako výchozí. Save zapíše `session.sound_of(self.track)` přes
+`session.write`, tedy slovník s obálkou (`"instrument"`) a bloky (`"blocks"`). Preset je
+jen zvuk, žádné noty. Load soubor přečte (`session.read`), chyby čtení (`OSError`,
+`ValueError`) ukáže v hlášce místo pádu, a když ve slovníku chybí klíč `"blocks"`
+(například je to celá píseň ze Save v hlavičce), řekne "This file is not a sound
+preset." Jinak zvuk nahraje `session.apply_sound` a panel se přestaví (`wx.CallAfter`).
+Je to tatáž funkce, kterou používá Paste sound.
+
+**`tick`** (`sound_page.py:170`): každý snímek překreslí klaviaturu; grafy jen když
 analyzér má nový úsek zvuku (`fresh`). `duration_ms = SCOPE_VIEW / sample_rate * 1000`
 = kolik milisekund zvuku graf vlny ukazuje (počet vzorků / vzorky za sekundu).
 
 ### `sirens/ui/song_page.py`: záložka Song
 
-**`SongPage(wx.Panel)`** (`song_page.py:29`) poskládá `PatternView` a `TimelineView`
+**`SongPage(wx.Panel)`** (`song_page.py:28`) poskládá `PatternView` a `TimelineView`
 a vpravo panel. Sama na myš nereaguje, to dělají ty dva prvky.
 
 **`__init__`**: `PatternView(self, player, self._preview)` - piano roll dostane funkci
-na přehrání noty. `TimelineView(self, song, player, self._select_from_timeline, lambda: self.lane)`
-- timeline dostane funkci na výběr stopy a uzávěr, který vrací aktuální automatizaci.
+na přehrání noty. `TimelineView(self, song, player, self._select_from_timeline)`
+- timeline dostane funkci na výběr stopy.
 
-**`select_track`** (`song_page.py:57`) nastaví stopu do obou prvků. Při změně stopy
-zruší `lane`, protože automatizace patří ke konkrétní stopě.
+**`select_track`** (`song_page.py:53`) nastaví stopu do obou prvků a přestaví panel.
 
-**`refresh`** (`song_page.py:72`) postaví panel:
+**`refresh`** (`song_page.py:65`) postaví panel:
 
 - Playback: Mode (Loop / Song), Tempo (40..200 bpm), Song length (4..512 taktů po 4),
   délka v minutách.
 - Skupina se jménem stopy: Mute / Duplicate / Remove, Pattern A..H, Length (1, 2, 4 takty),
-  Clear pattern, Add track.
-- Automation: dropdown se všemi slidery nástroje a jeho bloků, které nejsou přepínače:
+  Grid (16ths / Fine), Clear pattern, Add track.
 
-  ```python
-  self.lane_options = [(owner, p) for owner in self.track.automated_owners()
-                       for p in owner.PARAMS if not p.choices]
-  ```
-
-  Dva `for` v jednom výrazu: pro každého "vlastníka" (obálka, každý blok) každý jeho
-  parametr. V dropdownu je navíc "None" na pozici 0, proto se všude přičítá / odečítá 1.
-
-**`_show_duration`** (`song_page.py:151`):
+**`_show_duration`** (`song_page.py:125`):
 
 ```python
 seconds = round(self.song.bars * BEATS_PER_BAR * 60 / self.song.tempo)
@@ -804,7 +780,15 @@ doby. Příklad: 32 taktů při 110 bpm = 32 * 4 * 60 / 110 = 69,8 -> 70 s -> `1
 
 **`_set_length`**: změní počet taktů patternu a vyhodí noty, které začínají za novým koncem.
 
-**`_preview`** (`song_page.py:217`):
+**`_set_grid`** (`song_page.py:153`): volba Grid vybírá z `GRIDS = (16, 48)` podle pořadí
+(`GRIDS[index]`). Poměr `scale = new_grid / pattern.grid` je 3 (16 -> 48) nebo 1/3
+(48 -> 16). Každá nota se přepočítá: `step = round(n.step * scale)`, délka podobně
+(aspoň 1). Nové noty se skládají do slovníku s klíčem `(krok, výška)` přes
+`notes.setdefault(...)`: `setdefault` přidá notu jen když tam ještě nic není, takže když
+dvě noty po zaokrouhlení padnou na stejný krok a výšku, zůstane ta první (jinak by
+zněly dvakrát nahlas). Nakonec se přepíše `pattern.grid` a `pattern.notes`.
+
+**`_preview`** (`song_page.py:204`):
 
 ```python
 self.engine.send_note(channel, pitch, 100)
@@ -846,23 +830,6 @@ snímku v sekundách, aby se věci hýbaly stejně rychle, i když snímky necho
 - Esc (`EVT_CHAR_HOOK`) nebo dvojklik okno zavře. `_on_close` dá vědět stránce
   (`on_close` -> `VisualPage._fullscreen_closed` -> `self.fullscreen = None`) a `event.Skip()`
   nechá wx okno opravdu zavřít.
-
-### `sirens/ui/light_page.py`: záložka Light
-
-**`LightPage(wx.Panel)`** (`light_page.py:21`): drží `LightRig` (počítá barvu, `sirens/light/rig.py`),
-`ArtNetSender` (posílá po síti, `sirens/light/artnet.py`), IP adresu (`127.0.0.1` = tento
-počítač) a přepínač `sending`.
-
-**`tick`** (`light_page.py:83`), každý snímek, i když je vidět jiná záložka:
-
-1. `self.rig.update(analyzer.bands())` - barva podle síly basů, středů a výšek.
-2. `text = self._send()` - pošle (pokud je zapnuto) a vrátí text pro štítek.
-3. Když je záložka vidět: náhled barvy a štítek. Červeně jen když posílat chceš a nejde to.
-
-**`_send`** (`light_page.py:68`): když se neposílá, jen vrátí text. Jinak zkontroluje IP
-(`ipaddress.IPv4Address` vyhodí `ValueError` pro nesmysl), pošle 512 kanálů universa
-(`rig.channels()`) a síťovou chybu (`OSError`) chytí a vrátí jako text. Díky `try / except`
-špatná adresa nebo vypnutá síť nikdy neshodí aplikaci.
 
 ---
 
@@ -915,8 +882,8 @@ který každý tik projde noty a pošle ty, které na daném kroku začínají. 
 zahraje krátký náhled (`_preview`) při přidání noty.
 
 **8. Co je takt, krok a tik a jak se mezi nimi převádí?**
-Takt = kus času, 4 doby. Krok = políčko mřížky (16, 12 nebo 24 na takt). Tik = jednotka
-přehrávače, 48 na takt (48 je dělitelné 16, 12 i 24). Ukazatel v piano rollu:
+Takt = kus času, 4 doby. Krok = políčko mřížky (16 na takt, u Fine 48). Tik = jednotka
+přehrávače, 48 na takt (krok šestnáctiny jsou 3 tiky, krok Fine 1 tik). Ukazatel v piano rollu:
 `position // ticks_per_step % steps`; v časové ose `position / TICKS_PER_BAR`.
 
 **9. Proč se pravý panel pokaždé celý maže a staví znovu a proč `wx.CallAfter`?**
@@ -924,13 +891,18 @@ Je to jednodušší a spolehlivější než hlídat jednotlivé změny. `CallAft
 že tlačítko, na které jsi klikl, je v tom panelu, a prvek nejde zničit uprostřed zpracování
 jeho vlastní události. Proto se přestavba odloží, až událost doběhne.
 
-**10. Proč se světlo počítá i na jiné záložce, ale obraz ne?**
-Světlo má svítit s hudbou pořád, je to výstup ven (do reálného světla). Obraz je drahé
-počítat a je vidět jen v záložce Visual nebo ve fullscreenu, takže se počítá jen tehdy.
+**10. K čemu je volba Grid a co se stane s notami, když ji přepnu?**
+16ths = 16 kroků na takt, Fine = 48 kroků na takt (krok = 1 tik přehrávače), pro noty
+hrané "od ruky". `_set_grid` pozice a délky násobí třemi (16 -> 48, přesně), nebo dělí třemi
+a zaokrouhlí (48 -> 16). Dvě noty na stejném kroku a výšce se sloučí do první (`setdefault`).
+Pattern si grid pamatuje (`pattern.grid`) a ukládá se do souboru.
 
-**11. Jak časová osa převádí logaritmický slider na výšku?**
-`unit = log(value / lo) / log(hi / lo)`. Stejný poměr frekvencí (třeba oktáva) zabere
-stejnou výšku, což odpovídá tomu, jak to slyší ucho.
+**11. Co je preset zvuku a čím se liší od uložené písně?**
+Preset je soubor `.json` se zvukem jedné stopy: slovník ze `session.sound_of` (obálka
+a bloky), bez not a bez časové osy. Save ho zapíše přes `session.write`, Load ho přes
+`session.apply_sound` nahraje do vybrané stopy. Celá píseň (Save v hlavičce) je
+`session.capture` s tempem, stopami, patterny a obrazem. Load presetu proto odmítne
+soubor bez klíče `"blocks"`.
 
 ---
 
@@ -939,12 +911,12 @@ stejnou výšku, což odpovídá tomu, jak to slyší ucho.
 **Kdo volá moje soubory:**
 
 - `sirens/ui/main_frame.py` (`MainFrame.__init__`) vytváří `KeyboardPlayer`, `SoundPage`,
-  `SongPage`, `VisualPage`, `LightPage`; nastavuje `keys.on_space = self._toggle_playing`.
+  `SongPage`, `VisualPage`; nastavuje `keys.on_space = self._toggle_playing`.
 - `MainFrame.select_track` volá `keys.set_channel`, `sound_page.select_track`, `song_page.select_track`.
-- `MainFrame._on_tick` (časovač 30 FPS) volá `tick` všech čtyř stránek.
+- `MainFrame._on_tick` (časovač 30 FPS) volá `tick` stránek, které jsou vidět.
 - `MainFrame._on_activate` volá `keys.focus_lost`;
-  `MainFrame._on_close` volá `keys.close`, `light_page.close` a zavírá fullscreen.
-- Open souboru a automatizace z jiných míst volají `refresh` stránek a nastavují `song_page.lane`.
+  `MainFrame._on_close` volá `keys.close` a zavírá fullscreen.
+- Open souboru (`MainFrame._apply`) volá `visual_page.refresh` a `select_track`, který přestaví panely Sound a Song.
 - `sound_page.py` vkládá `PianoView`; `song_page.py` vkládá `PatternView` a `TimelineView`.
 - `piano.py` a `pattern_view.py` berou `note_name` z `keys.py`.
 
@@ -952,15 +924,14 @@ stejnou výšku, což odpovídá tomu, jak to slyší ucho.
 
 - `sirens/audio/engine.py`: `send_note` (klávesy, náhled noty), `set_volume` (Master).
 - `sirens/song.py`: `Note`, `Pattern`, `BEATS_PER_BAR`, `STEPS_PER_BAR`, `TICKS_PER_BAR`,
-  `PATTERN_NAMES`, `MAX_TRACKS`, `MIN_BARS`, `MAX_BARS`; metody `note_at`,
-  `ticks_per_step`, `add_track`, `remove_track`, `automated_owners`.
+  `PATTERN_NAMES`, `MAX_TRACKS`, `MIN_BARS`, `MAX_BARS`, `GRIDS`; atribut `pattern.grid`,
+  metody `note_at`, `steps`, `ticks_per_step`, `add_track`, `remove_track`.
 - `sirens/audio/player.py` (`Player`): `playing`, `mode`, `position`, `start_bar`,
   `play`, `stop`, `set_tempo`.
-- `sirens/session.py`: `sound_of`, `apply_sound` (Copy / Paste sound), `duplicate`.
+- `sirens/session.py`: `sound_of`, `apply_sound` (Copy / Paste sound a presety), `write`, `read` (presety), `duplicate`.
 - `sirens/audio/analyzer.py`: `scope`, `spectrum`, `freqs`, `peak_level_db`,
-  `peak_frequency`, `bands`, `SCOPE_VIEW`.
+  `peak_frequency`, `SCOPE_VIEW`.
 - `sirens/audio/blocks.py` a `sirens/visual/layers.py`: `CATALOG` (co jde přidat).
 - `sirens/visual/painter.py`: `Painter.render`.
-- `sirens/light/rig.py` (`LightRig`) a `sirens/light/artnet.py` (`ArtNetSender`).
 - `sirens/ui/sidebar.py`, `stack_editor.py`, `views.py`, `widgets.py`, `theme.py`:
   panel, editor bloků/vrstev, grafy, tlačítka, barvy a písma.

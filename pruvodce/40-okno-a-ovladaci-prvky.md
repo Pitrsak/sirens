@@ -2,7 +2,7 @@
 
 Tahle kapitola vysvětluje všechno, co je v Sirens "okno": jak se poskládá hlavní okno,
 jak funguje wxPython, proč a jak si kreslíme vlastní slidery a tlačítka, jak funguje
-pravý panel a jak se kreslí osciloskop, spektrum, obraz a světlo.
+pravý panel a jak se kreslí osciloskop, spektrum a obraz.
 
 Soubory, o kterých je řeč:
 
@@ -14,7 +14,7 @@ Soubory, o kterých je řeč:
 | `sirens/ui/widgets.py` | malé kreslené prvky: `Caption`, `PillButton`, `TextButton`, `StatusPill`, `ChoiceRow`, `confirm` |
 | `sirens/ui/sidebar.py` | `Sidebar`: pravý panel, do kterého se skládají slidery; `divider` (tenká čára) |
 | `sirens/ui/stack_editor.py` | `StackEditor`: úprava seznamu bloků zvuku / vrstev obrazu v panelu |
-| `sirens/ui/views.py` | `GraphView` a podtřídy `ScopeView`, `SpectrumView`, `VisualView`, `LightView` |
+| `sirens/ui/views.py` | `GraphView` a podtřídy `ScopeView`, `SpectrumView`, `VisualView` |
 | `sirens/ui/__init__.py` | prázdný, jen dělá ze složky `ui` balíček |
 
 Samotné záložky (`sound_page.py`, `song_page.py`, ...) jsou v kapitole 50. Tady jde o to,
@@ -26,7 +26,7 @@ z čeho jsou postavené.
 
 ```
 +--------------------------------------------------------------------------------------+
-| SIRENS          [Sound] [Song] [Visual] [Light]          [Open] [Save]   [ Play ]   |  hlavička
+| SIRENS          [Sound] [Song] [Visual]                  [Open] [Save]   [ Play ]   |  hlavička
 +--------------------------------------------------------------------------------------+  divider
 |                                                      | OUTPUT                        |
 |   +-----------------------------------------------+  | [Master ██████░░░░]  [0.50]   |
@@ -50,7 +50,7 @@ Kdo co kreslí:
 - **Záložky, Open, Save, Play a tlačítka typu "Add block"**: `PillButton` ve `widgets.py`.
   Vybraná záložka a Play jsou bílé (`primary=True`).
 - **Malá textová tlačítka** u nadpisu (Off, Up, Down, Remove, Copy sound): `TextButton`.
-- **Rámečky SCOPE, SPECTRUM, VISUAL, LIGHT**: `views.py`.
+- **Rámečky SCOPE, SPECTRUM, VISUAL**: `views.py`.
 - **Štítek pod grafy** ("Track 1: Oscillator -> Filter"): `StatusPill`.
 - **Pravý panel**: `Sidebar` v `sidebar.py`, slidery v něm: `Slider` v `slider.py`,
   řady tlačítek typu Sine / Saw / Square: `ChoiceRow`.
@@ -58,8 +58,8 @@ Kdo co kreslí:
 - **Klaviatura, piano roll, časová osa**: to už jsou jiné soubory (kapitola 50), ale
   berou barvy z `theme.py`.
 
-Každá záložka (Sound, Song, Visual, Light) je jeden `wx.Panel`, který má vlevo
-viewport (grafy) a vpravo `Sidebar`. Všechny čtyři existují pořád, jen tři jsou schované.
+Každá záložka (Sound, Song, Visual) je jeden `wx.Panel`, který má vlevo
+viewport (grafy) a vpravo `Sidebar`. Všechny tři existují pořád, jen dvě jsou schované.
 
 ---
 
@@ -94,9 +94,9 @@ dělá jen málo práce a kreslí se jen to, co je vidět.
 ### Frame a Panel
 
 - `wx.Frame` = okno s titulkem a křížkem. `MainFrame` z něj dědí
-  (`class MainFrame(wx.Frame)`, `sirens/ui/main_frame.py:43`).
+  (`class MainFrame(wx.Frame)`, `sirens/ui/main_frame.py:42`).
 - `wx.Panel` = obdélník uvnitř okna, do kterého se dávají další prvky. Do Frame se
-  nekreslí přímo, dá se do něj jeden panel (`root = wx.Panel(self)`, `main_frame.py:61`)
+  nekreslí přímo, dá se do něj jeden panel (`root = wx.Panel(self)`, `main_frame.py:60`)
   a všechno ostatní je jeho dítě.
 
 Každý prvek má **rodiče** (parent): první argument konstruktoru. `SoundPage(root, ...)`
@@ -119,7 +119,7 @@ Prvek se přidá metodou `Add(prvek, proportion, flagy, okraj)`:
   `wx.ALIGN_CENTER_VERTICAL` = zarovnat na střed výšky.
 - **okraj** = kolik pixelů na těch stranách.
 
-Příklad z `MainFrame.__init__` (`main_frame.py:87`):
+Příklad z `MainFrame.__init__` (`main_frame.py:73`):
 
 ```python
 layout = wx.BoxSizer(wx.VERTICAL)
@@ -130,13 +130,13 @@ for page in self.pages.values():
 root.SetSizer(layout)
 ```
 
-Sizer přeskakuje schované prvky, takže když jsou tři záložky schované, celý zbytek
+Sizer přeskakuje schované prvky, takže když jsou dvě záložky schované, celý zbytek
 výšky dostane ta jedna viditelná.
 
 Další užitečné věci ze sizerů v našem kódu:
 - `AddSpacer(12)` = prázdné místo 12 px (mezery mezi slidery v `sidebar.py`).
 - `AddStretchSpacer()` = "pružina", která zabere všechno volné místo. V hlavičce
-  (`main_frame.py:110`) odtlačí Open / Save / Play doprava.
+  (`main_frame.py:108`) odtlačí Open / Save / Play doprava.
 - `SetMinSize((-1, 56))` = minimální velikost, `-1` znamená "v tomhle rozměru je mi to jedno".
 - `Layout()` = "přepočítej rozložení teď". Volá se, když se něco změní za běhu
   (přepnutí záložky, Play se změní na Stop a má jinou šířku).
@@ -160,7 +160,7 @@ Když funkci argument nestojí za nic, používáme lambdu, která ho zahodí:
 
 **`event.Skip()`**: znamená "já jsem s tím hotový, ale ať to zpracuje i někdo další
 (nebo wx sám)". Je potřeba hlavně u událostí, kde wx má i vlastní chování. Příklad
-`_on_close` (`main_frame.py:225`): bez `event.Skip()` na konci by se okno nezavřelo,
+`_on_close` (`main_frame.py:221`): bez `event.Skip()` na konci by se okno nezavřelo,
 protože bychom zavření "spolkli". U `_on_editor_key` ve slideru se `Skip()` volá pro
 všechny klávesy kromě Esc, aby normální písmena došla do textového políčka.
 
@@ -197,7 +197,7 @@ nekreslí, jen prvek označí "je potřeba překreslit". Systém pak co nejdří
 `EVT_PAINT`. Výhoda: když se hodnota změní 5x během jednoho okamžiku, nakreslí se to
 jednou. `Refresh(False)` = navíc nemazat předem pozadí (stejně ho přemalujeme celé).
 
-Typická obsluha kreslení (zkrácený `Caption._on_paint`, `widgets.py:33`):
+Typická obsluha kreslení (zkrácený `Caption._on_paint`, `widgets.py:31`):
 
 ```python
 def _on_paint(self, event):
@@ -239,7 +239,7 @@ spektra.
 ### Časovač `wx.Timer`
 
 Časovač je budík, který každých N milisekund pošle událost `EVT_TIMER`.
-V `MainFrame.__init__` (`main_frame.py:104`):
+V `MainFrame.__init__` (`main_frame.py:85`):
 
 ```python
 self.timer = wx.Timer(self)
@@ -274,7 +274,7 @@ s Cmd / Ctrl filtr pouští dál, aby šlo psát čísla a normálně ovládat s
 
 Vlastní menu aplikace nemá, takže žádné klávesové zkratky přes `EVT_MENU` neřešíme.
 
-`EVT_ACTIVATE` (`main_frame.py:90`): když přepneš do jiné aplikace, okno ztratí fokus
+`EVT_ACTIVATE` (`main_frame.py:88`): když přepneš do jiné aplikace, okno ztratí fokus
 a puštění klávesy už k nám nedojde. Kdybychom nic neudělali, nota by zněla donekonečna.
 Proto `_on_activate` zavolá `self.keys.focus_lost()`.
 
@@ -313,25 +313,23 @@ __main__.py
    |    |                +-- StackEditor (plní Sidebar bloky z racku)
    |    |-- SongPage   --+-- pattern / timeline views + Sidebar
    |    |-- VisualPage --+-- VisualView + Sidebar + StackEditor (vrstvy)
-   |    |-- LightPage  --+-- LightView, StatusPill + Sidebar
    |-- wx.Timer 30x/s
           |
           v
      _on_tick (každých 33 ms)
        |-- každý 60. tik: _autosave -> ~/.sirens/autosave.json
        |-- analyzer.update()  (nový úsek zvuku?)
-       |-- viditelná záložka .tick(...) -> view.show(data) -> Refresh() -> EVT_PAINT -> draw
-       \-- light_page.tick (vždycky, světlo svítí pořád)
+       \-- viditelná záložka .tick(...) -> view.show(data) -> Refresh() -> EVT_PAINT -> draw
 
 Uživatel táhne slider:
   EVT_LEFT_DOWN / EVT_MOTION -> Slider._set_from_mouse -> set_value
      -> Refresh() (překreslit pruh)
-     -> on_change(hodnota) -> owner.set("Cutoff", hodnota)  (blok zvuku / vrstva / světlo)
+     -> on_change(hodnota) -> owner.set("Cutoff", hodnota)  (blok zvuku / vrstva obrazu)
 ```
 
 Důležitá myšlenka: **UI prvky nevědí nic o zvuku.** Slider jen zavolá funkci `on_change`,
 kterou mu někdo dal. Sidebar jen projde seznam `PARAMS` a pro každý udělá slider.
-Co se se hodnotou stane, řeší objekt, kterému patří (blok, vrstva, světlo). Tomu se
+Co se se hodnotou stane, řeší objekt, kterému patří (blok, vrstva). Tomu se
 říká oddělení zobrazení od logiky a je to dobrý argument u otázky na architekturu.
 
 ---
@@ -340,7 +338,7 @@ Co se se hodnotou stane, řeší objekt, kterému patří (blok, vrstva, světlo
 
 ### `sirens/ui/main_frame.py`: hlavní okno
 
-#### Konstanty (`main_frame.py:36`)
+#### Konstanty (`main_frame.py:35`)
 
 - `FPS = 30`: kolikrát za sekundu tiká časovač. 30 snímků stačí na plynulý pohyb
   grafů a nezatíží procesor.
@@ -350,22 +348,22 @@ Co se se hodnotou stane, řeší objekt, kterému patří (blok, vrstva, světlo
   `[2]` je kořen.
 - `FILE_TYPES`: filtr do dialogu ve formátu `"popisek|maska"`.
 
-#### `__init__` (`main_frame.py:44`)
+#### `__init__` (`main_frame.py:43`)
 
 Postupně:
 1. Okno 1280 x 820, minimum 1000 x 680 (menší by se nevešel panel se slidery).
 2. Vytvoří píseň s jednou stopou, přehrávač, hraní na klávesnici (mezerník = Play / Stop),
    pustí výstupy všech stop do enginu.
-3. `root` panel a v něm všechny čtyři záložky. Záložky dostávají **funkce** z okna jako
+3. `root` panel a v něm všechny tři záložky. Záložky dostávají **funkce** z okna jako
    argumenty (`self.select_track`, `self._tracks_changed`), takže když uživatel v záložce
    vybere stopu, záložka zavolá okno a okno to rozešle všem. Záložky o sobě navzájem nevědí.
 4. Sizer: hlavička, čára, záložky.
 5. Načtení autosave a výběr záložky Sound.
 6. Časovač a navázání `EVT_ACTIVATE` a `EVT_CLOSE`.
 
-#### Hlavička: `_build_header` (`main_frame.py:93`)
+#### Hlavička: `_build_header` (`main_frame.py:91`)
 
-Vodorovný sizer: logo, čtyři záložky, pružina, Open, Save, Play. Zajímavý je jeden řádek:
+Vodorovný sizer: logo, tři záložky, pružina, Open, Save, Play. Zajímavý je jeden řádek:
 
 ```python
 self.tabs[name] = PillButton(header, name, lambda n=name: self._select_tab(n))
@@ -373,11 +371,11 @@ self.tabs[name] = PillButton(header, name, lambda n=name: self._select_tab(n))
 
 Proč `n=name` a ne jen `lambda: self._select_tab(name)`? Lambda si nepamatuje **hodnotu**
 proměnné, ale **proměnnou samotnou**. Až by se na tlačítko kliklo, cyklus by byl dávno
-hotový a `name` by bylo `"Light"`, takže všechna čtyři tlačítka by přepínala na Light.
+hotový a `name` by bylo `"Visual"`, takže všechna tři tlačítka by přepínala na Visual.
 Výchozí hodnota parametru (`n=name`) se ale vyhodnotí hned při vytvoření lambdy, takže
 každá lambda dostane svoji kopii. Stejný trik je v `sidebar.py:114` a `stack_editor.py`.
 
-#### Přepínání záložek: `_select_tab` (`main_frame.py:118`)
+#### Přepínání záložek: `_select_tab` (`main_frame.py:116`)
 
 ```python
 for tab_name, page in self.pages.items():
@@ -389,17 +387,17 @@ page.GetParent().Layout()
 `Layout()` přepočítá sizer, aby nově ukázaná záložka dostala místo. `page` je po cyklu
 poslední záložka, ale všechny mají stejného rodiče (`root`), takže je to jedno.
 
-#### Stopy: `select_track`, `_tracks_changed` (`main_frame.py:129`)
+#### Stopy: `select_track`, `_tracks_changed` (`main_frame.py:127`)
 
 Okno hlídá, aby Sound i Song měly vybranou stejnou stopu, a přepne klávesnici na kanál
 nástroje té stopy. Po přidání / smazání stopy pošle enginu nový mix výstupů.
 
-#### Přehrávání (`main_frame.py:142`)
+#### Přehrávání (`main_frame.py:140`)
 
 - `_toggle_playing`: Play / Stop.
 - `_show_playing`: text tlačítka Play / Stop podle stavu.
 
-#### Ukládání (`main_frame.py:150`)
+#### Ukládání (`main_frame.py:148`)
 
 - `_capture`: celý stav jako slovník (`session.capture`, kapitola 20).
 - `_apply`: zastaví přehrávač, obnoví stav, znovu zapojí výstupy, překreslí panely,
@@ -409,7 +407,7 @@ nástroje té stopy. Po přidání / smazání stopy pošle enginu nový mix vý
 - `_autosave`: zapíše jen tehdy, když se text liší od minula (`last_saved`).
 - `_save`, `_open`: dialogy. Chyba při otevírání = hláška, ne pád.
 
-#### Hlavní smyčka: `_on_tick` (`main_frame.py:200`)
+#### Hlavní smyčka: `_on_tick` (`main_frame.py:197`)
 
 ```python
 now = time.monotonic()
@@ -421,20 +419,21 @@ analyzer = self.engine.analyzer
 fresh = analyzer.update()
 if self.sound_page.IsShown():
     self.sound_page.tick(analyzer, fresh)
-...
-self.light_page.tick(analyzer)
+if self.song_page.IsShown():
+    self.song_page.tick()
+if self.visual_page.IsShown() or self.visual_page.fullscreen is not None:
+    self.visual_page.tick(analyzer, dt)
 ```
 
 - `dt` = skutečně uplynulý čas, potřebuje ho obraz (pohyb nezávislý na zpoždění časovače).
 - `fresh` = jestli analyzer má nový úsek zvuku; grafy se mění jen tehdy.
 - Kreslí se **jen viditelná záložka** (`IsShown()`), ať se zbytečně nepálí procesor.
   Výjimka: Visual běží i z jiné záložky, když je otevřený fullscreen (projektor).
-  Světlo běží vždycky, svítí, ať se díváš kamkoli.
 
-#### Zavření: `_on_close` (`main_frame.py:225`)
+#### Zavření: `_on_close` (`main_frame.py:221`)
 
 Pořadí je důležité: zastavit časovač (ať netiká do napůl zrušených věcí), uložit autosave,
-zavřít přehrávač, klávesnici, fullscreen okno, světlo, engine. Nakonec `event.Skip()`,
+zavřít přehrávač, klávesnici, fullscreen okno, engine. Nakonec `event.Skip()`,
 teprve to okno opravdu zavře.
 
 ---
@@ -562,7 +561,7 @@ if self.on_change:
 
 #### Psaní přesné hodnoty
 
-`_start_edit` (`slider.py:126`) položí přes rámeček skutečné textové políčko
+`_start_edit` (`slider.py:157`) položí přes rámeček skutečné textové políčko
 `wx.TextCtrl` (dítě slideru), předvyplní ho aktuálním číslem, označí text a dá mu fokus,
 takže se dá hned psát.
 
@@ -650,7 +649,7 @@ Metody na stavění panelu (všechny přidávají na konec, shora dolů):
 | `add_params(owner)` | pro každý `Param` z `owner.PARAMS` slider nebo `ChoiceRow` |
 | `add_choice(...)` | `ChoiceRow` |
 | `add_button(...)` | `PillButton` |
-| `add_text(...)` | popisek + `wx.TextCtrl` (název stopy, IP adresa) |
+| `add_text(...)` | popisek + `wx.TextCtrl` (název stopy) |
 | `add_dropdown(...)` | popisek + `wx.Choice` (rozbalovací seznam) |
 | `add_note(text)` / `set_note` | volný text, jde později změnit |
 
@@ -666,7 +665,7 @@ for p in owner.PARAMS:
                         on_change=on_change, value=owner.get(p.label), fixed=fixed, step=p.step)
 ```
 
-Blok zvuku, vrstva obrazu i světlo mají seznam `PARAMS` (popisy sliderů, `sirens/param.py`)
+Blok zvuku i vrstva obrazu mají seznam `PARAMS` (popisy sliderů, `sirens/param.py`)
 a metody `get` / `set`. Panel tedy **nemusí vědět, co je Cutoff nebo Attack**; jen projde
 seznam a pro každý parametr udělá slider s aktuální hodnotou (`owner.get`). Pohyb slideru
 zavolá `owner.set(popisek, hodnota)`. Nový druh bloku = jen nový seznam `PARAMS`, UI se
@@ -710,14 +709,14 @@ načítání = hláška (pyo hlásí nečitelný soubor různými výjimkami, pr
 
 ---
 
-### `sirens/ui/views.py`: osciloskop, spektrum, obraz, světlo
+### `sirens/ui/views.py`: osciloskop, spektrum, obraz
 
 #### `GraphView` (`views.py:23`): společný rámeček
 
-Všechny čtyři grafy mají stejný rámeček (zaoblený, nadpis vlevo nahoře, údaj vpravo
+Všechny tři grafy mají stejný rámeček (zaoblený, nadpis vlevo nahoře, údaj vpravo
 nahoře). Ten kreslí `GraphView._on_paint` a pak zavolá `self.draw(gc, x, y, w, h)`
 s vnitřní plochou. `draw` v `GraphView` nedělá nic, **podtřídy ho přepíšou**. To je
-dědičnost v praxi: rámeček je napsaný jednou, vnitřek čtyřikrát.
+dědičnost v praxi: rámeček je napsaný jednou, vnitřek třikrát.
 
 Data se do grafu dostanou přes `show(...)`, kterou volá záložka každý snímek. `show` si
 data jen uloží, nastaví text vpravo nahoře a zavolá `Refresh(False)`. Kreslí se až
@@ -747,11 +746,6 @@ Samotné spektrum počítá `analyzer.py` (vlastní DFT, kapitola 30), tady se j
 Obraz z `Painter.render()` (pole výška x šířka x 3 čísla 0..255) převede na `wx.Bitmap`
 (`FromBuffer`) a nakreslí ho zvětšený tak, aby se celý vešel a nezdeformoval:
 `scale = min(w / bw, h / bh)` a vystředí ho.
-
-#### `LightView` (`views.py:193`)
-
-Kruh v barvě, kterou právě svítí světlo, a nahoře hodnoty R, G, B a DMX kanály, na které
-se posílají (`address` až `address + 2`).
 
 ---
 
@@ -813,7 +807,7 @@ svoje minimum), `wx.EXPAND` = roztáhne se i do druhého směru.
 **6. Jak funguje časovač a co se děje v `_on_tick`?**
 `wx.Timer` posílá `EVT_TIMER` každých 33 ms (30 fps). `_on_tick` změří `dt`, každé 2 s
 uloží autosave, aktualizuje analyzátor a nechá překreslit jen viditelnou záložku
-(plus fullscreen obraz a světlo vždycky).
+(plus fullscreen obraz).
 
 **7. Proč `lambda n=name: ...` v cyklu?**
 Lambda si pamatuje proměnnou, ne hodnotu; po cyklu by všechny lambdy viděly poslední
@@ -824,7 +818,7 @@ Prvek nejde zrušit uprostřed obsluhy jeho vlastní události. Kliknutí na Rem
 celý panel včetně tlačítka Remove, proto se změna provede až po dokončení kliknutí.
 
 **9. Jak pravý panel ví, jaké slidery ukázat?**
-Každý blok / vrstva / světlo má `PARAMS` (seznam `Param`) a `get` / `set`.
+Každý blok / vrstva má `PARAMS` (seznam `Param`) a `get` / `set`.
 `Sidebar.add_params` pro každý parametr vyrobí slider a napojí ho na `owner.set`. Panel
 o zvuku nic neví, takže nový blok nepotřebuje žádnou změnu UI.
 
@@ -841,10 +835,9 @@ Kdo volá do souborů z této kapitoly:
 | Kdo | Co používá |
 |---|---|
 | `sirens/__main__.py:15` | vytvoří `MainFrame(engine)` |
-| `sirens/ui/sound_page.py` | `Sidebar` (s pevnou částí), `divider`, `StackEditor` ("Add block"), `ScopeView`, `SpectrumView`, `StatusPill`, `confirm` (Paste sound), `theme` |
-| `sirens/ui/song_page.py` | `Sidebar`, `divider`, `confirm` (Remove track), `theme`; `add_slider` (Tempo, Song length), `add_choice`, `add_dropdown`, `add_note` (délka písně) |
+| `sirens/ui/sound_page.py` | `Sidebar` (s pevnou částí), `divider`, `StackEditor` ("Add block"), `ScopeView`, `SpectrumView`, `StatusPill`, `confirm` (Paste sound), `theme`; `add_dropdown`, `add_text`, `add_group` (Preset) |
+| `sirens/ui/song_page.py` | `Sidebar`, `divider`, `confirm` (Remove track), `theme`; `add_slider` (Tempo, Song length), `add_choice` (Grid), `add_note` (délka písně) |
 | `sirens/ui/visual_page.py` | `Sidebar` (pevná část s Fullscreen), `divider`, `StackEditor` ("Add layer"), `VisualView`, `theme` |
-| `sirens/ui/light_page.py` | `Sidebar`, `divider`, `LightView`, `StatusPill`, `theme`; `add_text` (IP adresa) |
 | `sirens/ui/piano.py`, `pattern_view.py`, `timeline_view.py` | jen barvy a písmo z `theme` |
 | `sirens/param.py` | definuje `Param` a `Adjustable`, které čte `Sidebar.add_params` |
 
@@ -857,4 +850,4 @@ Kam volá `MainFrame`:
 | `sirens/ui/keys.py` (`KeyboardPlayer`) | hraní na klávesnici, mezerník, kanál vybrané stopy |
 | `sirens/audio/engine.py` | `engine.play(outputs)`, `engine.analyzer`, `engine.close()` |
 | `sirens/session.py` | `capture`, `restore`, `read`, `write`, `AUTOSAVE` |
-| všechny čtyři `*_page.py` | `tick`, `select_track`, `refresh`, `fullscreen` |
+| všechny tři `*_page.py` | `tick`, `select_track`, `refresh`, `fullscreen` |

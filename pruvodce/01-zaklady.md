@@ -309,17 +309,19 @@ obraz[:, :, 0] = 1.0              # celý první barevný kanál na maximum
 
 ### Vyhlazování („kus starého + kus nového“)
 
-Na víc místech (analýza, obraz, světlo) uvidíš něco jako:
+Na víc místech (analýza, obraz) uvidíš něco jako:
 
 ```python
 # sirens/visual/features.py: průměr basů = 90 % starého + 10 % nového
 self.bass_average = 0.9 * self.bass_average + 0.1 * self.bass
-# sirens/light/rig.py: barva světla, keep = slider Smoothing
-self.rgb = [keep * old + (1 - keep) * new for old, new in zip(self.rgb, bands)]
+# podobný princip: beat po úderu hasne, každý snímek zůstane 85 % (BEAT_FALL)
+self.beat *= BEAT_FALL
 ```
 
 Hodnota se nepřepne hned na novou, ale každý snímek se k ní kousek přiblíží. Výsledek je plynulý
-a nebliká. Čím větší první číslo, tím pomaleji reaguje. Protože se to děje „za snímek“,
+a nebliká. Čím větší první číslo, tím pomaleji reaguje. U beatu je to stejná myšlenka, jen bez
+nového kusu: po úderu se každý snímek vynásobí 0,85, takže hodnota plynule klesá k nule
+místo toho, aby zhasla naráz. Protože se to děje „za snímek“,
 rychlost závisí na tom, kolik snímků za sekundu běží (Sirens: 30).
 
 opencv (`cv2`) v Sirens kreslí do těchhle polí tvary (kruhy, čáry), rozmazává a podobně.
