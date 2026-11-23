@@ -1,0 +1,84 @@
+{
+ "instrument": {
+  "Attack": 0.03599397428734306,
+  "Decay": 0.055622459911575106,
+  "Sustain": 0.7961165048543689,
+  "Release": 0.07978676739438058,
+  "Volume": 0.043689320388349516
+ },
+ "blocks": [
+  {
+   "block": "Oscillator",
+   "values": {
+    "Wave": 1,
+    "Octave": -1,
+    "Detune": 0.0,
+    "Pitch drop": 0,
+    "Drop time": 0.06,
+    "Brightness": 0.6601941747572816,
+    "Level": 0.8640776699029126
+   },
+   "extra": {},
+   "enabled": true
+  },
+  {
+   "block": "Oscillator",
+   "values": {
+    "Wave": 1,
+    "Octave": 0,
+    "Detune": 6.796116504854368,
+    "Pitch drop": 5,
+    "Drop time": 0.06,
+    "Brightness": 0.7233009708737864,
+    "Level": 0.47572815533980584
+   },
+   "extra": {},
+   "enabled": true
+  },
+  {
+   "block": "Oscillator",
+   "values": {
+    "Wave": 2,
+    "Octave": 0,
+    "Detune": -6.796116504854368,
+    "Pitch drop": 0,
+    "Drop time": 0.06,
+    "Brightness": 0.4320388349514563,
+    "Level": 0.48058252427184467
+   },
+   "extra": {},
+   "enabled": true
+  },
+  {
+   "block": "Filter",
+   "values": {
+    "Mode": 0,
+    "Cutoff": 2261.663837025099,
+    "Resonance": 1,
+    "Envelope": 0.2087378640776699,
+    "Wobble": 0.35388349514563106,
+    "Wobble rate": 2
+   },
+   "extra": {},
+   "enabled": true
+  },
+  {
+   "block": "Distortion",
+   "values": {
+    "Drive": 12.264797754685008,
+    "Mix": 0.9029126213592233
+   },
+   "extra": {},
+   "enabled": true
+  },
+  {
+   "block": "Bitcrush",
+   "values": {
+    "Bits": 6,
+    "Mix": 1
+   },
+   "extra": {},
+   "enabled": true
+  }
+ ]
+}

@@ -1,0 +1,151 @@
+{
+ "instrument": {
+  "Attack": 0.01,
+  "Decay": 0.3,
+  "Sustain": 0.7,
+  "Release": 0.4,
+  "Volume": 0.4174757281553398
+ },
+ "blocks": [
+  {
+   "block": "Oscillator",
+   "values": {
+    "Wave": 0,
+    "Octave": -1,
+    "Detune": 0,
+    "Pitch drop": 0,
+    "Drop time": 0.05099729840099487,
+    "Brightness": 1,
+    "Level": 0.6310679611650486
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Oscillator",
+   "values": {
+    "Wave": 0,
+    "Octave": 0,
+    "Detune": -18.446601941747574,
+    "Pitch drop": 5,
+    "Drop time": 0.02338471271155489,
+    "Brightness": 0.46116504854368934,
+    "Level": 0.5631067961165048
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Filter",
+   "values": {
+    "Mode": 0,
+    "Cutoff": 4276.880177049684,
+    "Resonance": 0.8228155339805825,
+    "Envelope": 0.4174757281553398,
+    "Wobble": 0.15728155339805827,
+    "Wobble rate": 0.3513016502279264
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Reverb",
+   "values": {
+    "Size": 0.8,
+    "Damping": 0.5,
+    "Mix": 0.558252427184466
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Distortion",
+   "values": {
+    "Drive": 3.436234298214636,
+    "Mix": 0.8349514563106796
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Filter",
+   "values": {
+    "Mode": 0,
+    "Cutoff": 723.2399755745793,
+    "Resonance": 1.4684466019417477,
+    "Envelope": 0.13592233009708737,
+    "Wobble": 0.06553398058252427,
+    "Wobble rate": 2.648794941255103
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Oscillator",
+   "values": {
+    "Wave": 0,
+    "Octave": -1,
+    "Detune": -42.71844660194175,
+    "Pitch drop": 0,
+    "Drop time": 0.052293366566665014,
+    "Brightness": 0.07281553398058252,
+    "Level": 0.3446601941747573
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Filter",
+   "values": {
+    "Mode": 0,
+    "Cutoff": 1414.3098263255529,
+    "Resonance": 1.099514563106796,
+    "Envelope": 0.10679611650485436,
+    "Wobble": 0.048058252427184464,
+    "Wobble rate": 0.3876846770211011
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Reverb",
+   "values": {
+    "Size": 0.8252427184466019,
+    "Damping": 0,
+    "Mix": 0.7281553398058253
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Delay",
+   "values": {
+    "Time": 0.0894366312474582,
+    "Feedback": 0.4611650485436893,
+    "Mix": 0.5485436893203883
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Distortion",
+   "values": {
+    "Drive": 11.153810330988389,
+    "Mix": 0.23300970873786409
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  }
+ ]
+}

@@ -1,19 +1,18 @@
 # Sirens
 
-Studio pro zvuk, obraz a světlo: nástroje, na které se hraje, píseň na časové ose,
-obraz a světlo, které na hudbu reagují.
+Studio pro zvuk a obraz: nástroje, na které se hraje, píseň na časové ose
+a obraz, který na hudbu reaguje.
 
-- **Sound:** nástroj vybrané stopy. Zdroje (Oscillator, Supersaw, FM, Additive, Noise, Sampler)
-  a efekty (Filter, Distortion, Bitcrush, Chorus, Delay, Reverb) pod sebou, obálka not.
+- **Sound:** nástroj vybrané stopy. Zdroje (Oscillator, Noise, Sampler)
+  a efekty (Filter, Distortion, Bitcrush, Delay, Reverb) pod sebou, obálka not.
   Hraje se na klávesnici počítače, myší na klaviatuře nebo na MIDI klávesnici.
-- **Song:** až 8 stop, každá s vlastním nástrojem. Patterny s notami, časová osa písně
-  a automatizace sliderů v čase.
+- **Song:** až 8 stop, každá s vlastním nástrojem. Patterny s notami a časová osa písně.
 - **Visual:** obraz složený z vrstev (tvary a efekty), které reagují na zvuk. Lze i přes celou obrazovku.
-- **Light:** RGB světlo řízené zvukem, posílané přes Art-Net.
+
+Zvuk stopy jde uložit jako preset (**Preset: Save / Load** na záložce Sound), presety jsou
+v `assets/presets/` po složkách (drums, bass, synth). Hotové písně jsou v `assets/songs/`.
 
 Práce se ukládá sama (autosave) a otevře se při dalším spuštění; **Save / Open** ukládá do souboru.
-**Undo / Redo** (Cmd+Z / Cmd+Shift+Z, na Windows Ctrl) vrací změny. **Export WAV** (Song) přehraje
-píseň od začátku do konce a nahraje ji do zvukového souboru.
 
 ## Instalace a spuštění
 
@@ -42,9 +41,9 @@ Příště už stačí jen poslední řádek.
 - **Add block / Add layer** přidá blok nebo vrstvu, **Off / On** ho vypne a zapne, **Up / Down** posune, **Remove** smaže.
 - **Duplicate** (Song) zkopíruje stopu i se zvukem a patterny; **Copy sound / Paste sound** (Sound) přenese jen zvuk na jinou stopu.
 - Pattern: klik do mřížky přidá notu, tažením se prodlouží, klik na notu ji smaže, kolečko posouvá výšky.
-  Pruh **Vel** pod mřížkou nastaví sílu (hlasitost) not, **Grid** přepne na trioly.
-- Časová osa: klik / tažení v řádku stopy vloží její pattern, klik na **M** stopu ztlumí,
-  spodní řádek kreslí automatizace vybraného slideru (pravé tlačítko bod smaže).
+  Pruh **Vel** pod mřížkou nastaví sílu (hlasitost) not.
+  **Grid** přepne mřížku patternu: šestnáctiny (16 kroků na takt) nebo **Fine** (48 kroků na takt).
+- Časová osa: klik / tažení v řádku stopy vloží její pattern, klik na **M** stopu ztlumí.
 - **Song length** nastaví délku písně v taktech (ukáže i délku v minutách); kolečko myši nad časovou osou posouvá v čase.
 - Slidery: táhnout myší, kolečko = jemný posun, dvojklik = výchozí hodnota,
   kliknutí na číslo = zapsat přesnou hodnotu.

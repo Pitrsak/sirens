@@ -1,0 +1,108 @@
+{
+ "instrument": {
+  "Attack": 0.01,
+  "Decay": 0.8562448151789933,
+  "Sustain": 0.6407766990291263,
+  "Release": 0.12165657277701522,
+  "Volume": 0.5097087378640777
+ },
+ "blocks": [
+  {
+   "block": "Oscillator",
+   "values": {
+    "Wave": 1,
+    "Octave": 0,
+    "Detune": 0,
+    "Pitch drop": 0,
+    "Drop time": 0.03824056249417689,
+    "Brightness": 0.8300970873786407,
+    "Level": 0.616504854368932
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Oscillator",
+   "values": {
+    "Wave": 2,
+    "Octave": -1,
+    "Detune": -7.7669902912621325,
+    "Pitch drop": 6,
+    "Drop time": 0.016722490999429473,
+    "Brightness": 0.7572815533980582,
+    "Level": 0.529126213592233
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Filter",
+   "values": {
+    "Mode": 2,
+    "Cutoff": 4573.548581426243,
+    "Resonance": 3.95873786407767,
+    "Envelope": 0.16990291262135923,
+    "Wobble": 0.20533980582524272,
+    "Wobble rate": 0.7177429333958436
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Filter",
+   "values": {
+    "Mode": 2,
+    "Cutoff": 4135.842352648517,
+    "Resonance": 2.9441747572815533,
+    "Envelope": 0.38349514563106796,
+    "Wobble": 0.270873786407767,
+    "Wobble rate": 0.18975354610768527
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Distortion",
+   "values": {
+    "Drive": 1.7345043324438618,
+    "Mix": 0.32038834951456313
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Oscillator",
+   "values": {
+    "Wave": 0,
+    "Octave": -1,
+    "Detune": 13.592233009708735,
+    "Pitch drop": 0,
+    "Drop time": 0.07151035467357496,
+    "Brightness": 0.5728155339805825,
+    "Level": 0.5
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  },
+  {
+   "block": "Filter",
+   "values": {
+    "Mode": 2,
+    "Cutoff": 534.8284011664863,
+    "Resonance": 4.881067961165049,
+    "Envelope": 0.4563106796116505,
+    "Wobble": 0.1966019417475728,
+    "Wobble rate": 0.4385071650511638
+   },
+   "extra": {},
+   "enabled": true,
+   "automation": {}
+  }
+ ]
+}
