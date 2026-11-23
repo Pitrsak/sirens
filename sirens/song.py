@@ -122,3 +122,8 @@ class Song:
     def outputs(self):
         """Výstupy všech nástrojů pro mix v enginu."""
         return [track.instrument.output for track in self.tracks]
+
+    def tidy(self):
+        """uklidí starý zvuky všech nástrojů (viz Instrument.tidy)."""
+        for track in self.tracks:
+            track.instrument.tidy()

@@ -18,13 +18,19 @@ jde na výstup nástroje, takže rack jde kdykoli přestavět bez lupnutí
 (zásuvka starej a novej zvuk krátce prolne, místo aby to skočilo).
 """
 
+import time
+
 from pyo import InputFader, MidiAdsr, Mix, Notein, Sig, SigTo
 
 from sirens.audio.rack import Rack
 from sirens.param import Adjustable, Param
 
-VOICES = 8          # kolik not může nástroj hrát najednou (= kolik hlasů má Notein)
+# kolik not může nástroj hrát najednou (= kolik hlasů má Notein).
+# každej hlas je vlastní kopie všech bloků a pyo je počítá pořád, i v tichu,
+# takže víc hlasů = víc práce pro procesor. písně potřebujou max 3 noty naráz, 4 stačí.
+VOICES = 4
 FADE_TIME = 0.05    # prolnutí při přestavbě racku (s)
+RETIRE_AFTER = 1.0  # za kolik s se starej zvuk zahodí (prolnutí trvá jen FADE_TIME, takže bohatě)
 
 
 class Instrument(Adjustable):
@@ -69,10 +75,20 @@ class Instrument(Adjustable):
 
         zásuvka ještě 50 ms prolíná ze starýho zvuku, ale drží jen odkaz na novej.
         kdyby Python starej zvuk hned uvolnil, zvukový vlákno by četlo uvolněnou
-        paměť a program spadl. proto si pár předchozích zvuků necháme v retired
-        (poslední 4, starší už dávno doprolínaly a můžou zaniknout).
+        paměť a program spadl. proto si starej zvuk necháme v retired i s časem,
+        kdy jsme ho vyměnili, a zahodí ho až tidy(), když už dávno doprolínal.
         """
-        self.retired = (self.retired + [self.current])[-4:]
-        # voices=1: všech 8 hlasů sečíst do jednoho kanálu
+        self.tidy()
+        self.retired.append((time.monotonic(), self.current))
+        # voices=1: všechny hlasy sečíst do jednoho kanálu
         self.current = Mix(flow, voices=1) if flow is not None else Sig(0)
         self.socket.setInput(self.current, fadetime=FADE_TIME)
+
+    def tidy(self):
+        """zahodí z retired starý zvuky, který už doprolínaly.
+
+        dokud na ně v Pythonu je odkaz, pyo je pořád počítá (i když je nikdo neposlouchá),
+        takže by jen žraly procesor. volá se z play() a každý 2 s z hlavní smyčky okna.
+        """
+        now = time.monotonic()
+        self.retired = [(when, sound) for when, sound in self.retired if now - when < RETIRE_AFTER]

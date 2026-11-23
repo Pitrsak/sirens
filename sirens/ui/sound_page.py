@@ -169,7 +169,7 @@ class SoundPage(wx.Panel):
 
     def tick(self, analyzer, fresh: bool):
         """Každej snímek: klaviatura; grafy jen když je hotovej novej úsek zvuku."""
-        self.piano.Refresh(False)          # False = nemazat pozadí, kreslí se stejně celý znova
+        self.piano.tick()                  # překreslí se, jen když se změnilo, co hraje
         if fresh:
             # kolik ms zvuku graf ukazuje: počet vzorků / vzorků za sekundu * 1000
             duration_ms = SCOPE_VIEW / analyzer.sample_rate * 1000

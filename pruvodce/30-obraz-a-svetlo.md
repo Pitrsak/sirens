@@ -360,14 +360,22 @@ canvas[HEIGHT // 2:] = canvas[:HEIGHT // 2][::-1]           # horní půlka obr�
 **Glow (layers.py:210)**: záře kolem světlých míst.
 
 ```python
-return cv2.GaussianBlur(canvas, (0, 0), s["Radius"]) * s["Amount"] * (1 + self.drive(f))   # :233
+if s["Radius"] < 4:
+    blurred = cv2.GaussianBlur(canvas, (0, 0), s["Radius"])
+else:
+    small = cv2.resize(canvas, (WIDTH // 4, HEIGHT // 4), interpolation=cv2.INTER_AREA)
+    small = cv2.GaussianBlur(small, (0, 0), s["Radius"] / 4)
+    blurred = cv2.resize(small, (WIDTH, HEIGHT), interpolation=cv2.INTER_LINEAR)
+return blurred * s["Amount"] * (1 + self.drive(f))      # :245
 ```
 
 `cv2.GaussianBlur` obraz rozmaže: každý pixel nahradí váženým průměrem svého okolí, kde bližší pixely mají větší váhu (váhy mají tvar zvonu, Gaussovy křivky). `Radius` je šířka toho zvonu (sigma), `(0, 0)` znamená „velikost okolí si dopočítej sám“. Rozmazaná kopie se zesílí a **přičte** navrch, takže světlé věci „svítí do okolí“.
 
+**Proč přes zmenšený obrázek:** při velkém Radius průměruje každý pixel stovky sousedů a to je drahé (Radius 30 trvalo ~19 ms na snímek, na slabším Windows to nestíhalo 30 snímků za sekundu). Záře je ale stejně rozmazaná, takže ji spočítáme na 4x menším obrázku se 4x menším Radius a zvětšíme zpátky. `INTER_AREA` při zmenšení průměruje pixely, `INTER_LINEAR` při zvětšení plynule dopočítá hodnoty mezi nimi. Výsledek se od plného rozlišení liší míň než o 1/255 (okem nepoznáš) a trvá ~0,4 ms. U Radius pod 4 by byly vidět kostičky a je to stejně levné, tak tam se zmenšuje ne.
+
 Glow má `POST = True`: jeho záře se přidá jen k tomu, co se ukáže na obrazovce, ale **ne** do paměti obrazu, ze které vychází Feedback. Jinak by se záře přičítala každý snímek znovu a znovu a za chvíli by byl celý obraz bílý. Glow proto nemá `apply`, ale `halo`, a Painter s ním zachází zvlášť.
 
-**Warp (layers.py:236)**: vlnění obrazu.
+**Warp (layers.py:248)**: vlnění obrazu.
 
 ```python
 self.xs, self.ys = np.meshgrid(np.arange(WIDTH, dtype=np.float32), np.arange(HEIGHT, dtype=np.float32))  # :251
@@ -380,7 +388,7 @@ return cv2.remap(canvas, self.xs + dx, self.ys + dy, cv2.INTER_LINEAR, borderMod
 - `dx` (vodorovný posun) se mění se sinusem podle řádku, `dy` podle sloupce. `phase` roste s časem, takže se vlny pohybují.
 - `cv2.remap(obraz, mapa_x, mapa_y, ...)` postaví nový obraz tak, že pixel `[y, x]` vezme z místa `[mapa_y[y, x], mapa_x[y, x]]` původního. Když to místo padne mezi pixely, `INTER_LINEAR` dopočítá barvu z okolních čtyř. `BORDER_REFLECT` = když bychom brali z místa mimo obraz, vezme se zrcadlově zevnitř, aby na krajích nebyly černé díry.
 
-### `CATALOG` (layers.py:265)
+### `CATALOG` (layers.py:277)
 
 Seznam všech druhů vrstev. Z něj se staví menu *Add layer* (`sirens/ui/visual_page.py`) a podle jejich `NAME` se vrstvy hledají při načítání uloženého souboru (`sirens/session.py`, `LAYERS_BY_NAME`).
 
@@ -441,8 +449,8 @@ Tohle je místo, kde kód **sám** počítá se signálem, a ne jen volá hotovo
 3. **Částicová simulace** (`layers.py:120–167`): vznik, pohyb, stárnutí a zánik částic ve vektorech numpy.
 4. **Feedback** (`layers.py:169–193`): paměť minulého snímku + ztmavení násobením; matici a transformaci dělá OpenCV, ale samotný princip zpětné vazby (painter si drží `self.canvas`) je náš.
 5. **Mirror** (`layers.py:194–209`): zrcadlení přímo přes výřezy pole.
-6. **Warp** (`layers.py:236–264`): posunová mapa ze sinusovek počítáme sami, OpenCV `remap` ji jen použije.
-7. **Glow** (`layers.py:210–235`): rozmazání je `GaussianBlur` z OpenCV, ale zesílení, přičtení a to, že se nedává do paměti (POST), je naše logika v `painter.py`.
+6. **Warp** (`layers.py:248–276`): posunová mapa ze sinusovek počítáme sami, OpenCV `remap` ji jen použije.
+7. **Glow** (`layers.py:210–246`): rozmazání je `GaussianBlur` z OpenCV, ale zesílení, přičtení a to, že se nedává do paměti (POST), je naše logika v `painter.py`.
 
 Čistě knihovní operace jsou: kreslicí funkce `cv2.polylines/circle`, `cv2.getRotationMatrix2D` + `cv2.warpAffine`, `cv2.GaussianBlur`, `cv2.remap`. I ty ale pokaždé dostávají parametry spočítané ze zvuku.
 

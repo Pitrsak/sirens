@@ -49,7 +49,8 @@ Krok za krokem:
 2. **Zmáčkneš na klávesnici A.** `KeyboardPlayer.FilterEvent` (`sirens/ui/keys.py:107`)
    chytí stisk, spočítá číslo noty 60 a pošle ji enginu jako MIDI zprávu. Nástroj
    vybrané stopy začne hrát. Na klaviatuře se klávesa C4 obarví, protože nota je teď
-   v množině `active` a klaviatura se 30x za sekundu překresluje (`SoundPage.tick`).
+   v množině `active` a klaviatura si to 30x za sekundu zkontroluje (`PianoView.tick`)
+   a překreslí se, protože se `active` změnila.
 3. **Pustíš A.** Přijde událost "klávesa nahoru", `KeyboardPlayer` pošle note off
    (velocity 0) a nota dozní podle Release.
 4. **Přepneš Keys na Hold.** Zavolá se `keys.set_hold(True)`. Od teď první stisk notu
@@ -155,7 +156,7 @@ Puštění klávesy jde stejnou cestou, jen s velocity 0 (= note off).
 ```
  klik na klávesu na obrazovce
         |
- PianoView._on_down (piano.py:70) -> _note_at(x, y) najde notu
+ PianoView._on_down (piano.py:84) -> _note_at(x, y) najde notu
         |
  KeyboardPlayer.press(nota)  ...  a dál úplně stejně jako nahoře
 ```
@@ -448,7 +449,7 @@ na kterou je nastavená klávesnice (A = první C vlevo).
 písně. Klaviatura hraje přes stejný objekt jako klávesnice, takže myš i klávesnice dělají
 totéž a Hold platí pro obojí.
 
-**`_keys()`** (`piano.py:40`) spočítá obdélník každé klávesy: `(nota, x, y, šířka, výška, je_černá)`.
+**`_keys()`** (`piano.py:54`) spočítá obdélník každé klávesy: `(nota, x, y, šířka, výška, je_černá)`.
 
 ```python
 white_w = w / (7 * OCTAVES)                       # 21 bílých kláves na celou šířku
@@ -469,7 +470,7 @@ na 0,68 šířky bílé, takže sahá od 0,68 do 1,32 a sedí přesně přes hra
 (střed na 1,0). Je kratší (60 % výšky). Černé jsou v seznamu **až za bílými**, protože
 se kreslí v tomhle pořadí a černé musí být navrchu.
 
-**`_note_at(x, y)`** (`piano.py:63`) je **hit-test**, tedy otázka "na co jsem klikl?":
+**`_note_at(x, y)`** (`piano.py:77`) je **hit-test**, tedy otázka "na co jsem klikl?":
 
 ```python
 for note, kx, ky, kw, kh, black in reversed(self._keys()):   # nejdřív černý (jsou navrchu)
@@ -490,7 +491,10 @@ nejdřív černé. Kdyby šel od začátku, klik na černou klávesu by našel b
 
 **`_on_paint`**: nahoře nápověda (včetně "A is now C4" přes `note_name`), pak klávesy.
 Klávesa, jejíž nota je v `player.active`, je šedá. Klaviatura sama neví, kdy se něco
-změní, proto ji `SoundPage.tick` každý snímek překreslí.
+změní, proto se `PianoView.tick` (`piano.py:38`) každý snímek podívá na stav
+(co hraje, oktáva, Hold) a překreslí se, jen když je jiný než minule. Kreslení stojí
+procesor (hlavně na Windows), takže 30x za sekundu malovat pořád to samé je zbytečné.
+`frozenset` je set, který nejde měnit, takže si ho můžeme uložit a porovnat s dalším.
 
 ### `sirens/ui/pattern_view.py`: piano roll
 
@@ -744,7 +748,7 @@ jen zvuk, žádné noty. Load soubor přečte (`session.read`), chyby čtení (`
 preset." Jinak zvuk nahraje `session.apply_sound` a panel se přestaví (`wx.CallAfter`).
 Je to tatáž funkce, kterou používá Paste sound.
 
-**`tick`** (`sound_page.py:170`): každý snímek překreslí klaviaturu; grafy jen když
+**`tick`** (`sound_page.py:170`): každý snímek zavolá `piano.tick()` (překreslí se jen při změně); grafy jen když
 analyzér má nový úsek zvuku (`fresh`). `duration_ms = SCOPE_VIEW / sample_rate * 1000`
 = kolik milisekund zvuku graf vlny ukazuje (počet vzorků / vzorky za sekundu).
 

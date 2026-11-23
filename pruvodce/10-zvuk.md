@@ -49,13 +49,13 @@ kliknutí se v kódu zavolá `Rack.changed()` a celý řetězec se znovu propoj�
                     MIDI zpráva na kanál stopy (1..8)
                                |
    +---------------------- Instrument (jeden na stopu) -----------------------+
-   |  Notein (8 hlasů) -> pitch (Hz), trigger (impuls při stisku), velocity   |
-   |  MidiAdsr(velocity) -> envelope (obálka, 8 hlasů)                        |
+   |  Notein (4 hlasy) -> pitch (Hz), trigger (impuls při stisku), velocity   |
+   |  MidiAdsr(velocity) -> envelope (obálka, 4 hlasy)                        |
    |                                                                          |
    |  Rack: bloky shora dolů (flow = co zrovna teče)                          |
-   |    Oscillator   flow = zvuk oscilátoru                (8 hlasů)          |
-   |    + Noise      flow = flow + šum                     (8 hlasů)          |
-   |    -> Filter    flow = filtr(flow), každá nota zvlášť (8 hlasů)          |
+   |    Oscillator   flow = zvuk oscilátoru                (4 hlasy)          |
+   |    + Noise      flow = flow + šum                     (4 hlasy)          |
+   |    -> Filter    flow = filtr(flow), každá nota zvlášť (4 hlasy)          |
    |    -> Delay     flow = ozvěna(součet hlasů)           (1 hlas)           |
    |                               |                                          |
    |  play(flow): Mix(flow, voices=1) -> [zásuvka InputFader] * Volume        |
@@ -76,8 +76,9 @@ Tři věci, které si z obrázku odnes:
 
 1. **Noty jsou vždycky MIDI zprávy.** Klávesnice, sekvencer i skutečná MIDI klávesnice
    jdou stejnou cestou, takže nástroj neví (a nezajímá ho), kdo hraje.
-2. **Každý nástroj má 8 hlasů.** Až do prvního efektu, který hlasy sečte, je každá nota
-   samostatný signál.
+2. **Každý nástroj má 4 hlasy** (`VOICES`). Až do prvního efektu, který hlasy sečte, je každá nota
+   samostatný signál. Každý hlas je vlastní kopie bloků a pyo je počítá pořád, i v tichu,
+   proto jen 4: písně hrají max 3 noty naráz (dřív 8 a na slabším počítači to nestíhalo).
 3. **Na dvou místech je „zásuvka“** (`InputFader`): v nástroji a v enginu. Díky ní jde
    za běhu vyměnit, co hraje, bez lupnutí.
 
@@ -91,7 +92,7 @@ Tři věci, které si z obrázku odnes:
 metod zbytku programu (`play`, `send_note`, `set_volume`, `close`).
 Vytváří se jednou v `sirens/__main__.py`, ještě před oknem.
 
-#### Server (`engine.py:26-30`)
+#### Server (`engine.py:29-33`)
 
 ```python
 self.server = Server(sr=sample_rate, nchnls=2, buffersize=buffer_size, duplex=int(microphone))
@@ -112,7 +113,7 @@ self.server.start()
 - `duplex=0`: jen výstup, mikrofon se neotevírá (s `microphone=True` by to bylo 1).
 - `setMidiInputDevice(99)`: 99 v pyo znamená „poslouchej všechna MIDI zařízení“.
 
-#### Výstupní řetězec (`engine.py:33-45`)
+#### Výstupní řetězec (`engine.py:36-48`)
 
 ```python
 self.silence = Sig(0)
@@ -151,10 +152,11 @@ self.analyzer = Analyzer(self.source, sample_rate)
   signál **před** hlasitostí, takže obraz reaguje stejně, i když máš Master skoro dole.
   Analyzer je popsaný v kapitole 30.
 
-#### `play(signal)` (`engine.py:47-56`)
+#### `play(signal)` a `tidy()` (`engine.py:50-65`)
 
 ```python
-self.retired = (self.retired + [self.current])[-4:]
+self.tidy()
+self.retired.append((time.monotonic(), self.current))
 self.current = Mix(signal, voices=1) if signal is not None else self.silence
 self.source.setInput(self.current, fadetime=FADE_TIME)
 ```
@@ -166,10 +168,10 @@ všech nástrojů).
 > Dá se mu dát jeden objekt i seznam objektů.
 
 - `self.current` drží nový součet. Musí být uložený v `self`, jinak by ho Python hned smazal.
-- `self.retired`: seznam posledních čtyř starých součtů. `[-4:]` je **slice**: vezmi poslední
-  čtyři prvky seznamu. Proč je držet, je vysvětlené u nástroje (stejný trik).
+- `self.retired`: staré součty i s časem, kdy jsme je vyměnili. `tidy()` z nich zahodí ty
+  starší než sekunda. Proč je držet a proč je zahazovat, je vysvětlené u nástroje (stejný trik).
 
-#### `send_note(channel, note, velocity)` (`engine.py:58-67`)
+#### `send_note(channel, note, velocity)` (`engine.py:67-76`)
 
 ```python
 status = (0x90 if velocity > 0 else 0x80) + channel - 1
@@ -193,10 +195,10 @@ počítače a sekvencer nepotřebují žádnou zvláštní cestu do nástroje.
 ### `sirens/audio/instrument.py` — Instrument
 
 Účel: jeden nástroj jedné stopy. Přijímá noty na svém MIDI kanálu, dělá z nich výšku
-a obálku pro 8 hlasů, drží rack bloků a má slidery Attack, Decay, Sustain, Release, Volume.
+a obálku pro 4 hlasy, drží rack bloků a má slidery Attack, Decay, Sustain, Release, Volume.
 Vytváří ho `Track` v `sirens/song.py` (`Instrument(channel)`).
 
-#### Dědičnost od `Adjustable` a `PARAMS` (`instrument.py:30-39`)
+#### Dědičnost od `Adjustable` a `PARAMS` (`instrument.py:36-45`)
 
 ```python
 class Instrument(Adjustable):
@@ -220,7 +222,7 @@ class Instrument(Adjustable):
 
 Texty v `help=` jsou anglicky, protože se ukazují v UI (celé UI je anglicky).
 
-#### Konstruktor (`instrument.py:41-58`)
+#### Konstruktor (`instrument.py:47-64`)
 
 ```python
 super().__init__()
@@ -239,10 +241,10 @@ self.rack = Rack(self)
 > z něj berou počáteční hodnoty (`s["Attack"]`).
 
 > **Pojem: `Notein`.** Pyo objekt, který poslouchá MIDI noty na jednom kanálu.
-> `poly=8` = umí 8 not naráz (8 **hlasů**). Každá nová nota dostane volný hlas.
+> `poly=VOICES` = umí 4 noty naráz (4 **hlasy**). Každá nová nota dostane volný hlas.
 > `scale=1` = výšku chceme rovnou v Hz, ne jako číslo noty (pyo přepočítá 60 -> 261,6 Hz).
 
-Z `Notein` se berou tři signály, každý má 8 proudů (jeden na hlas):
+Z `Notein` se berou tři signály, každý má 4 proudy (jeden na hlas):
 
 - `pitch`: frekvence noty v Hz. Frekvence = kolikrát za sekundu se vlna zopakuje = jak vysoko
   to zní. Dvojnásobná frekvence = o oktávu výš.
@@ -250,8 +252,8 @@ Z `Notein` se berou tři signály, každý má 8 proudů (jeden na hlas):
   a Sampler, aby věděly, kdy začít.
 - `velocity`: síla úhozu 0..1, dokud je klávesa dole, po puštění 0.
 
-> **Pojem: víc hlasů = víc proudů.** Když objekt dostane jako parametr signál s 8 proudy,
-> sám se rozdělí na 8 proudů. Proto jeden `LFO(freq=pitch)` hraje akord a nemusíme psát cyklus.
+> **Pojem: víc hlasů = víc proudů.** Když objekt dostane jako parametr signál se 4 proudy,
+> sám se rozdělí na 4 proudy. Proto jeden `LFO(freq=pitch)` hraje akord a nemusíme psát cyklus.
 > `len(objekt)` vrací, kolik proudů objekt má.
 
 > **Pojem: obálka ADSR (`MidiAdsr`).** Obálka říká, jak se hlasitost noty mění v čase.
@@ -280,7 +282,7 @@ Obálka je signál mezi 0 a 1 pro každý hlas. Zdroje jím násobí svou hlasit
 - `self.rack = Rack(self)`: rack dostane odkaz na svůj nástroj (bloky si od nástroje berou
   `pitch`, `trigger` a `envelope`).
 
-#### `set(label, value)` (`instrument.py:60-65`)
+#### `set(label, value)` (`instrument.py:66-71`)
 
 ```python
 super().set(label, value)
@@ -295,23 +297,29 @@ Volá ho slider (UI zavolá `owner.set(popisek, hodnota)`).
 `setattr(objekt, "attack", value)` je totéž jako `self.envelope.attack = value`, jen jméno
 atributu je v proměnné. `"Attack".lower()` = `"attack"`. Ušetří to čtyři skoro stejné `if`.
 
-#### `play(flow)` (`instrument.py:67-78`)
+#### `play(flow)` a `tidy()` (`instrument.py:73-94`)
 
 ```python
-self.retired = (self.retired + [self.current])[-4:]
+self.tidy()
+self.retired.append((time.monotonic(), self.current))
 self.current = Mix(flow, voices=1) if flow is not None else Sig(0)
 self.socket.setInput(self.current, fadetime=FADE_TIME)
 ```
 
-Volá ho rack po každé změně. `flow` je to, co vyteklo z posledního bloku (8 hlasů nebo 1),
+Volá ho rack po každé změně. `flow` je to, co vyteklo z posledního bloku (4 hlasy nebo 1),
 nebo `None`, když v racku nic nehraje.
 
-- `Mix(flow, voices=1)` sečte všech 8 hlasů do jednoho kanálu.
+- `Mix(flow, voices=1)` sečte všechny hlasy do jednoho kanálu.
 - `setInput(..., fadetime=0.05)` zásuvka 50 ms prolíná ze starého zvuku na nový.
 - **Proč `retired`:** zásuvka si v Pythonu pamatuje jen ten nový zvuk. Starý zvuk by Python
   hned smazal (nic na něj neukazuje), jenže zvukové vlákno z něj ještě 50 ms čte. Čtení
-  smazané paměti = pád programu. Proto si poslední čtyři staré zvuky necháme v seznamu,
-  než doprolínají. Starší než čtyři výměny zpátky už dávno dohrály a můžou zmizet.
+  smazané paměti = pád programu. Proto si staré zvuky necháme v seznamu i s časem výměny.
+- **Proč `tidy()`:** dokud na starý zvuk ukazuje odkaz, pyo ho pořád počítá, i když ho
+  nikdo neposlouchá. Dřív se jich drželo 4 na stopu napořád (a při načtení písně se rack
+  přestaví po každém bloku, takže to byly celé kopie zvuku), a na slabším počítači to
+  nestíhalo. `tidy()` zahodí zvuky starší než sekundu (`RETIRE_AFTER`), prolnutí trvá jen
+  50 ms, takže je to bezpečné. Volá se z `play()` a každé 2 s z hlavní smyčky okna
+  (`Song.tidy()` projde všechny stopy).
 
 ---
 
@@ -528,7 +536,7 @@ else:
 ```
 
 Když shora nic neteče, dál teče jen zvuk zdroje. Jinak se sečte to, co teče shora, se zvukem
-zdroje, ale **s 8 hlasy** (`voices=len(self.output)`), ne s jedním. Hlas 1 shora se sečte
+zdroje, ale **se 4 hlasy** (`voices=len(self.output)`), ne s jedním. Hlas 1 shora se sečte
 s hlasem 1 zdroje atd., takže noty zůstanou oddělené a filtr pod tím je může zpracovat každou
 zvlášť (každou s vlastní obálkou).
 
@@ -584,9 +592,9 @@ Efekt zpracuje, co přitéká. Když nic nepřitéká, nic nevydá. Konkrétní 
 
 **Dva druhy efektů:**
 
-- **Filter, Distortion, Bitcrush** zpracují 8 hlasů zvlášť (výsledek má zase 8 hlasů).
+- **Filter, Distortion, Bitcrush** zpracují 4 hlasy zvlášť (výsledek má zase 4 hlasy).
 - **Delay a Reverb** nejdřív udělají `Mix(flow, voices=1)` a pracují s jedním signálem.
-  Důvod: ozvěna nebo dozvuk má být jeden pro všechny noty (jinak 8x víc počítání),
+  Důvod: ozvěna nebo dozvuk má být jeden pro všechny noty (jinak 4x víc počítání),
   a u ozvěny noty stejně doznívají přes sebe.
 
 #### FilterBlock (`blocks.py:335-382`)
@@ -644,7 +652,7 @@ def process(self, flow):
 - Pro každé x spočítáme y vlastní funkcí `curve` a uložíme do tabulky (`replace`).
 - `Lookup` pak pro každý vzorek zvuku jen najde v tabulce hodnotu na pozici x.
   Proč tabulka a ne počítat funkci přímo: Python nemůže počítat 44 100 vzorků za sekundu
-  pro 8 hlasů ve zvukovém vlákně, ale vyhledat číslo v tabulce pyo zvládne bez problému.
+  pro 4 hlasy ve zvukovém vlákně, ale vyhledat číslo v tabulce pyo zvládne bez problému.
   Křivku tedy počítáme my, pyo ji jen „přikládá“ ke zvuku.
 - `Clip(flow, -1, 1)`: Lookup bere pozici jen -1..1, hlasitější vzorky by koukaly mimo tabulku.
 - `Interp(původní, upravený, interp=Mix)`: prolnutí, Mix 0 = jen původní, 1 = jen upravený.
@@ -719,7 +727,8 @@ protože vypadají „divně“.
    bloku a zahodí se s ním. Operátory jsou v kódu jen tam, kde vlevo je nový objekt
    (`DelayBlock`) nebo kde oba žijí stejně dlouho (`engine.py`, `instrument.py`).
 2. **`retired` v `Instrument.play` a `AudioEngine.play`.** Zásuvka 50 ms prolíná ze starého
-   zvuku, ale Python odkaz drží jen na nový. Poslední čtyři staré zvuky si proto necháme.
+   zvuku, ale Python odkaz drží jen na nový. Staré zvuky si proto chvíli necháme a `tidy()`
+   je zahodí po sekundě (dřív by je pyo počítal pořád dál).
 3. **`keep()` u tabulek.** Tabulky se nikdy nemažou (seznam `TABLES`), protože čtenář
    tabulky drží jen ukazatel na data, ne tabulku.
 
@@ -783,7 +792,8 @@ zahodil při přestavbě racku, výsledek by četl smazanou paměť (pád) a hro
 **6. Proč se tabulky nikdy neuvolňují a k čemu je `retired`?**
 Obojí brání pádům: zvukové vlákno čte data souběžně s Pythonem. Čtenář tabulky drží jen
 ukazatel na data, takže tabulka nesmí zmizet dřív. `retired` drží staré zvuky, ze kterých
-zásuvka ještě 50 ms prolíná, protože Python by je jinak hned smazal.
+zásuvka ještě 50 ms prolíná, protože Python by je jinak hned smazal. Po sekundě je `tidy()`
+zahodí, jinak by je pyo počítal pořád (zbytečně žerou procesor).
 
 **7. Jak se počítá výška zdroje s Octave a Detune?**
 `frekvence noty * 2^(octave + detune/1200)`. Oktáva = dvojnásobná frekvence, 1200 centů = oktáva.
@@ -794,7 +804,7 @@ Na C4 v původní délce, o oktávu výš za poloviční čas, a tím o oktávu 
 
 **9. Proč Delay a Reverb sčítají hlasy, ale Filter ne?**
 Filtr má mít pro každou notu vlastní obálku (Envelope otevírá filtr při každém stisku), takže
-zpracuje 8 hlasů zvlášť. Ozvěna a dozvuk stačí jedna pro všechny noty a ušetří to výpočet.
+zpracuje 4 hlasy zvlášť. Ozvěna a dozvuk stačí jedna pro všechny noty a ušetří to výpočet.
 
 **10. K čemu je na konci enginu `Clip(-1, 1)` a proč je analýza před Master?**
 Clip je pojistka, aby součet hodně hlasitých stop nepřekročil rozsah, který reproduktor

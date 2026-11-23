@@ -23,7 +23,7 @@ import wx                               # celá knihovna wx, používá se jako 
 ### Proměnné, typy, konstanty
 
 ```python
-VOICES = 8            # celé číslo (int)
+VOICES = 4            # celé číslo (int)
 FADE_TIME = 0.05      # desetinné číslo (float)
 name = "Track 1"      # text (str)
 playing = False       # pravda / nepravda (bool)
@@ -73,7 +73,9 @@ for p in self.PARAMS:
 - `x if podmínka else y` je **podmíněný výraz**: `Mix(flow, voices=1) if flow is not None else Sig(0)`
   = „když něco teče, sečti to, jinak ticho“.
 - **Řezy (slicing):** `seznam[-1]` poslední prvek, `seznam[1:]` všechno kromě prvního,
-  `seznam[-4:]` poslední čtyři. `(self.retired + [self.current])[-4:]` = přidej a nech jen 4 nejnovější.
+  `seznam[-4:]` poslední čtyři.
+- **List comprehension s podmínkou:** `[(when, sound) for when, sound in self.retired if now - when < RETIRE_AFTER]`
+  = nový seznam jen z těch dvojic, které jsou mladší než sekunda (ostatní vypadnou).
 - **Rozbalení:** `f(*seznam)` předá prvky seznamu jako jednotlivé argumenty (`Note(*[4, 60, 2])` = `Note(4, 60, 2)`),
   `{**slovnik, "x": 1}` vloží celý slovník do nového.
 - `a, b = b, a` prohodí dvě hodnoty naráz.
@@ -235,8 +237,8 @@ Objekty, které Sirens používá nejčastěji:
 
 ### Víc hlasů = víc proudů v jednom objektu
 
-Když `Notein(poly=8)` umí hrát 8 not naráz, `notes["pitch"]` není jeden signál, ale **8 proudů**
-(jeden na hlas). Oscilátor, který tenhle signál dostane jako `freq`, se taky sám rozdělí na 8 proudů.
+Když `Notein(poly=4)` umí hrát 4 noty naráz, `notes["pitch"]` není jeden signál, ale **4 proudy**
+(jeden na hlas). Oscilátor, který tenhle signál dostane jako `freq`, se taky sám rozdělí na 4 proudy.
 Tak jeden blok hraje akord, aniž bychom psali cyklus.
 
 ### Počítání se signály: `*`, `+` a `mul=`

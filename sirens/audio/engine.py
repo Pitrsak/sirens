@@ -8,11 +8,14 @@ co hraje, se dá kdykoli vyměnit (po přidání nebo smazání stopy), zbytek
 noty dostávaj nástroje jako MIDI zprávy (send_note).
 """
 
+import time
+
 from pyo import Clip, InputFader, Mix, Pan, Server, Sig, SigTo
 
 from sirens.audio.analyzer import Analyzer
 
 FADE_TIME = 0.05   # prolnutí při výměně signálu (s)
+RETIRE_AFTER = 1.0  # za kolik s se starej signál zahodí (stejně jako v instrument.py)
 
 
 class AudioEngine:
@@ -51,9 +54,15 @@ class AudioEngine:
         jeden objekt i seznam objektů (výstupy nástrojů všech stop).
         """
         # starej signál necháme chvíli žít, zásuvka z něj ještě prolíná (viz Instrument.play)
-        self.retired = (self.retired + [self.current])[-4:]
+        self.tidy()
+        self.retired.append((time.monotonic(), self.current))
         self.current = Mix(signal, voices=1) if signal is not None else self.silence
         self.source.setInput(self.current, fadetime=FADE_TIME)
+
+    def tidy(self):
+        """zahodí starý signály, který už doprolínaly (jinak by je pyo počítal pořád dál)."""
+        now = time.monotonic()
+        self.retired = [(when, signal) for when, signal in self.retired if now - when < RETIRE_AFTER]
 
     def send_note(self, channel: int, note: int, velocity: int):
         """pošle notu nástrojům jako MIDI zprávu (jako by přišla z MIDI klávesnice).

@@ -12,7 +12,8 @@ a hlídá, aby všechny záložky měly vybranou stejnou stopu (jinak by Sound u
 jinou stopu než Song, blbost).
 
 Srdce je časovač, tiká 30x za sekundu a pokaždý předá záložkám nový úsek zvuku.
-Každý 2 s navíc uloží stav do autosave (viz session.py), aby se po pádu nic neztratilo.
+Každý 2 s navíc uloží stav do autosave (viz session.py), aby se po pádu nic neztratilo,
+a zahodí starý zvuky, který už doprolínaly (viz Instrument.tidy).
 """
 
 import json
@@ -201,6 +202,9 @@ class MainFrame(wx.Frame):
         self.ticks += 1
         if self.ticks % AUTOSAVE_EVERY == 0:
             self._autosave(self._capture())
+            # úklid: starý zvuky po přestavbě racku, který už doprolínaly, zahodit, ať se nepočítaj
+            self.engine.tidy()
+            self.song.tidy()
         analyzer = self.engine.analyzer
         fresh = analyzer.update()        # fresh = je hotovej novej úsek zvuku?
         # kreslí se jen záložka, která je vidět, ať se zbytečně nepálí procesor

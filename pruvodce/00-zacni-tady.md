@@ -105,7 +105,7 @@ pyo ve svém vlákně samo. Proto je zvuk plynulý, i když okno zrovna překres
 stiskneš A na klávesnici počítače
   -> ui/keys.py               klávesa A = nota číslo 60 (střední C) + aktuální oktáva
   -> engine.send_note()        pošle MIDI zprávu "nota 60 zapnuta, síla 100" na kanál stopy
-  -> pyo Notein (instrument)   nástroj na tom kanálu ji chytí, dá jí volný hlas (max 8 not naráz)
+  -> pyo Notein (instrument)   nástroj na tom kanálu ji chytí, dá jí volný hlas (max 4 noty naráz)
                                výška noty -> Hz (60 -> 261,6 Hz), síla -> obálka ADSR
   -> rack, bloky shora dolů    zdroje (Oscillator, Noise...) vyrobí signál pro každý hlas,
                                efekty (Filter, Delay...) ho upraví
@@ -149,5 +149,5 @@ Podrobně je to rozepsané v kapitolách, tady jen kde hledat:
 5. Nakonec 90 jako test. Na co neumíš odpovědět, vrať se do kapitoly.
 
 Nejlepší způsob, jak kód pochopit: **něco v něm schválně změň a sleduj, co se stane**
-(třeba `FPS = 30` v `main_frame.py` na 5, nebo `VOICES = 8` v `instrument.py` na 1).
+(třeba `FPS = 30` v `main_frame.py` na 5, nebo `VOICES = 4` v `instrument.py` na 1).
 Pak to vrať zpátky (`git checkout -- soubor`).

@@ -228,9 +228,21 @@ class GlowLayer(Layer):
 
         GaussianBlur = rozmazání, každej pixel je váženej průměr okolí (váhy ve tvaru zvonu,
         Gaussova křivka). (0, 0) = velikost okna si OpenCV dopočítá samo z Radius (sigma).
+
+        Velkej Radius je drahej (každej pixel průměruje stovky sousedů, na Windows to
+        nestíhalo 30 snímků za sekundu). Záře je ale stejně rozmazaná, takže ji spočítám
+        na 4x menším obrázku (s 4x menším Radius) a pak ho zase zvětším, a vypadá to stejně.
+        INTER_AREA = při zmenšení průměruje pixely, INTER_LINEAR = při zvětšení plynule dopočítá mezi nima.
+        U malýho Radius by to bylo vidět (kostičky) a stejně je levnej, tak tam ne.
         """
         s = self.settings
-        return cv2.GaussianBlur(canvas, (0, 0), s["Radius"]) * s["Amount"] * (1 + self.drive(f))
+        if s["Radius"] < 4:
+            blurred = cv2.GaussianBlur(canvas, (0, 0), s["Radius"])
+        else:
+            small = cv2.resize(canvas, (WIDTH // 4, HEIGHT // 4), interpolation=cv2.INTER_AREA)
+            small = cv2.GaussianBlur(small, (0, 0), s["Radius"] / 4)
+            blurred = cv2.resize(small, (WIDTH, HEIGHT), interpolation=cv2.INTER_LINEAR)
+        return blurred * s["Amount"] * (1 + self.drive(f))
 
 
 class WarpLayer(Layer):

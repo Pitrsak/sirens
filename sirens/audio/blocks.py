@@ -321,7 +321,7 @@ class EffectBlock(Block):
 
     def connect(self, flow):
         # při každý změně racku se efekt postaví znovu s novým vstupem
-        # (starej řetězec se zahodí, drží ho jen nástroj v retired, než doprolíná)
+        # (starej řetězec se zahodí, drží ho jen nástroj v retired, než doprolíná a tidy() ho zahodí)
         self.output = self.process(flow) if flow is not None else None
         return self.output
 

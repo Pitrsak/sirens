@@ -26,12 +26,26 @@ class PianoView(wx.Control):
         super().__init__(parent, style=wx.BORDER_NONE)
         self.player = player
         self.mouse_note = None        # nota, kterou právě drží myš
+        self.shown = None             # co je teď nakreslený (viz tick), None = zatím nic
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.SetMinSize((-1, self.HEIGHT))
         self.Bind(wx.EVT_PAINT, self._on_paint)
         self.Bind(wx.EVT_LEFT_DOWN, self._on_down)
         self.Bind(wx.EVT_LEFT_UP, self._on_up)
         self.Bind(wx.EVT_MOTION, self._on_motion)
+        self.Bind(wx.EVT_SIZE, lambda e: self.Refresh())   # jiná velikost = klávesy jinde, překreslit
+
+    def tick(self):
+        """volá se každej snímek, ale překreslí se jen, když se něco změnilo.
+
+        kreslení stojí procesor (hlavně na Windows), tak ať se 30x za sekundu
+        nemaluje pořád ta samá klaviatura. stav = co hraje, oktáva a Hold.
+        frozenset = set, kterej nejde měnit, takže si ho můžu uložit a porovnat s dalším.
+        """
+        state = (frozenset(self.player.active), self.player.octave, self.player.hold)
+        if state != self.shown:
+            self.shown = state
+            self.Refresh(False)       # False = nemazat pozadí, kreslí se stejně celý znova
 
     def _first_note(self) -> int:
         # první C vlevo, stejnej vzorec jako v keys.py: 12 * (oktáva + 1), oktáva 4 -> 60
